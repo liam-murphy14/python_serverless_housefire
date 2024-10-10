@@ -1,0 +1,35 @@
+[project]
+name = "housefire"
+version = "1.0.0"
+authors = [
+    { name="Liam Murphy", email="liam.murphy137@gmail.com" },
+]
+description = "A personal project to help people see REITs"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "pandas",
+    "python-dotenv",
+    "requests",
+    "nodriver",
+    "googlemaps",
+]
+
+[project.urls]
+Homepage = "https://github.com/liam-murphy14/housefire"
+Issues = "https://github.com/liam-murphy14/housefire/issues"
+
+[tool.setuptools]
+include-package-data = true
+packages = [
+    'housefire',
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
