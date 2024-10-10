@@ -1,4 +1,4 @@
-{ buildPythonPackage
+{ buildPythonApplication
 , googlemaps
 , nodriver
 , pythonOlder
@@ -8,7 +8,7 @@
 , setuptools
 }:
 
-buildPythonPackage {
+buildPythonApplication {
   pname = "housefire";
   version = "1.0.0";
   pyproject = true;

@@ -20,13 +20,17 @@
             (
               python3.withPackages (
                 ps: with ps; [
-                  (callPackage ./default.nix { })
-                  # extra dev dependencies
+                  # dev dependencies
+                  pandas
+                  python-dotenv
+                  requests
+                  nodriver
+                  googlemaps
                   black
                 ]
               )
             )
-            # extra non-darwin dependencies
+            # extra dev non-darwin dependencies
             (if (!pkgs.stdenv.isDarwin) then pkgs.chromium else null)
             (if (!pkgs.stdenv.isDarwin) then pkgs.xvfb-run else null)
           ];
