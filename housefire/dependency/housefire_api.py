@@ -1,16 +1,12 @@
 import requests as r
 import time
+import housefire.config as config
 from housefire.logger import get_logger
-import googlemaps
+from housefire.dependency.dependency import Dependency
 
 logger = get_logger(__name__)
 
-
-def _is_error_response(response: r.Response) -> bool:
-    return response.status_code >= 400
-
-
-class HousefireAPI:
+class HousefireAPI(Dependency):
     """
     Housefire API client
 
@@ -19,12 +15,11 @@ class HousefireAPI:
     """
 
     def __init__(
-        self, api_key: str, base_url: str = "https://housefire.liammurphydev.com/api/"
+        self, base_url: str = config.HOUSEFIRE_DEFAULT_BASE_URL
     ):
         self.base_url = base_url
-        self.api_key = api_key
         self.headers = {
-            "x-api-key": self.api_key,
+            "x-api-key": config.HOUSEFIRE_API_KEY,
             "Content-Type": "application/json",
         }
         logger.debug("Housefire API client initialized")
@@ -67,7 +62,7 @@ class HousefireAPI:
         if r.status_code == 404:
             logger.debug(f"no properties found for ticker {ticker}")
             return list()
-        elif _is_error_response(r):
+        elif self._is_error_response(r):
             raise Exception(
                 f"unexpected error getting properties for ticker {ticker}: {r}"
             )
@@ -80,7 +75,7 @@ class HousefireAPI:
         and raising an exception if an unexpected error occurs
         """
         r = self._delete(f"/properties/byTicker/{ticker}")
-        if _is_error_response(r):
+        if self._is_error_response(r):
             raise Exception(
                 f"unexpected error deleting properties for ticker {ticker}: {r}"
             )
@@ -91,7 +86,7 @@ class HousefireAPI:
         deletes a property by ID, raising an exception if an unexpected error occurs
         """
         r = self._delete(f"/properties/{property_id}")
-        if _is_error_response(r):
+        if self._is_error_response(r):
             raise Exception(f"unexpected error deleting property {property_id}: {r}")
 
     def post_properties(self, data: list[dict]) -> list[dict]:
@@ -104,7 +99,7 @@ class HousefireAPI:
         r = self._post(f"/properties", data)
         if r.status_code == 400:
             raise ValueError(f"validation error while creating properties: {r}")
-        elif _is_error_response(r):
+        elif self._is_error_response(r):
             raise Exception(f"unexpected error creating properties: {r}")
         return list(r.json())
 
@@ -142,7 +137,7 @@ class HousefireAPI:
         if r.status_code == 404:
             logger.debug(f"no geocode found for address input {address_input}")
             return None
-        elif _is_error_response(r):
+        elif self._is_error_response(r):
             raise Exception(
                 f"unexpected error getting geocode for address input {address_input}: {r}"
             )
@@ -157,129 +152,22 @@ class HousefireAPI:
         r = self._post(f"/geocodes", data)
         if r.status_code == 400:
             raise ValueError(f"validation error while creating geocode: {r}")
-        elif _is_error_response(r):
+        elif self._is_error_response(r):
             raise Exception(f"unexpected error creating geocode: {r}")
         return r.json()
 
 
-class GoogleGeocodeAPI:
-
-    def __init__(self, api_key: str, housefire_api_client: HousefireAPI):
-        self.api_key = api_key
-        self.client = googlemaps.Client(key=api_key)
-        self.housefire_api_client = housefire_api_client
-        self.wait_time = 72  # wait 72 seconds between geocoding requests to limit to 1200 requests per day
-
-    def geocode_addresses(self, address_inputs: list[str]) -> dict[str, dict]:
-        """
-        geocodes a list of addresses and returns a dictionary of address inputs to housefire geocode results
-        """
-        results = dict()
-        for address_input in address_inputs:
-            housefire_geocode = self.housefire_api_client.get_geocode_by_address_input(
-                address_input
-            )
-            if housefire_geocode is not None:
-                logger.debug(f"address input {address_input} already in housefire")
-                results[address_input] = housefire_geocode
-                time.sleep(1)  # hacky rate limit
-                continue
-            logger.debug(f"geocoding address input with google: {address_input}")
-            google_geocode_response = self.client.geocode(address_input)
-            logger.debug(
-                f"geocoded address input {address_input} with response: {google_geocode_response}"
-            )
-            if len(google_geocode_response) == 0:
-                logger.error(f"no results found for address input {address_input}")
-                continue
-
-            housefire_geocode = self._google_geocode_to_housefire_geocode(
-                google_geocode_response[0]
-            )
-            logger.debug(
-                f"converted google geocode to housefire geocode: {housefire_geocode}"
-            )
-            housefire_geocode["addressInput"] = address_input
-            housefire_geocode_response_data = self.housefire_api_client.post_geocode(
-                housefire_geocode
-            )
-            results[address_input] = housefire_geocode_response_data
-            time.sleep(self.wait_time)  # hacky rate limit for google
-        return results
-
-    def _google_geocode_to_housefire_geocode(self, google_geocode: dict) -> dict:
-        (
-            street_number,
-            route,
-            locality,
-            administrative_area_level_1,
-            administrative_area_level_2,
-            country,
-            postal_code,
-        ) = (None, None, None, None, None, None, None)
-        for component in google_geocode["address_components"]:
-            for component_type in component["types"]:
-                if component_type == "street_number":
-                    street_number = component["long_name"]
-                elif component_type == "route":
-                    route = component["long_name"]
-                elif component_type == "locality":
-                    locality = component["long_name"]
-                elif component_type == "administrative_area_level_1":
-                    administrative_area_level_1 = component["long_name"]
-                elif component_type == "administrative_area_level_2":
-                    administrative_area_level_2 = component["long_name"]
-                elif component_type == "country":
-                    country = component["long_name"]
-                elif component_type == "postal_code":
-                    postal_code = component["long_name"]
-
+    @staticmethod
+    def housefire_geocode_to_housefire_address(housefire_geocode: dict) -> dict:
         return {
-            "streetNumber": street_number,
-            "route": route,
-            "locality": locality,
-            "administrativeAreaLevel1": administrative_area_level_1,
-            "administrativeAreaLevel2": administrative_area_level_2,
-            "country": country,
-            "postalCode": postal_code,
-            "formattedAddress": (
-                google_geocode["formatted_address"]
-                if "formatted_address" in google_geocode
-                else None
-            ),
-            "globalPlusCode": (
-                google_geocode["plus_code"]["global_code"]
-                if "plus_code" in google_geocode
-                else None
-            ),
-            "latitude": google_geocode["geometry"]["location"][
-                "lat"
-            ],  # these should never be None, throw error
-            "longitude": google_geocode["geometry"]["location"]["lng"],
+            "addressInput": housefire_geocode["addressInput"],
+            "address": f"{housefire_geocode['streetNumber']} {housefire_geocode['route']}",
+            "neighborhood": housefire_geocode["locality"],
+            "city": housefire_geocode["administrativeAreaLevel2"],
+            "state": housefire_geocode["administrativeAreaLevel1"],
+            "zip": housefire_geocode["postalCode"],
+            "country": housefire_geocode["country"],
+            "latitude": housefire_geocode["latitude"],
+            "longitude": housefire_geocode["longitude"],
         }
 
-
-if __name__ == "__main__":
-    import pandas as pd
-    from housefire.utils import parse_area_string, get_env_nonnull
-    import dotenv
-
-    dotenv.load_dotenv()
-
-    df = pd.DataFrame(
-        {
-            "name": ["Chicago CH2"],
-            "address": ["2200 Busse Road, Elk Grove Village, IL 60007"],
-            "squareFootage": ["485,000"],
-        }
-    )
-
-    df["squareFootage"] = df["squareFootage"].apply(parse_area_string)
-    address_inputs = df["address"].to_list()
-    df.drop(columns=["address"], inplace=True)
-    records = df.to_dict(orient="records")
-    housefire_api_client = HousefireAPI(get_env_nonnull("HOUSEFIRE_API_KEY"))
-    google_geocode_api_client = GoogleGeocodeAPI(
-        get_env_nonnull("GOOGLE_MAPS_API_KEY"), housefire_api_client
-    )
-    housefire_geocodes = google_geocode_api_client.geocode_addresses(address_inputs)

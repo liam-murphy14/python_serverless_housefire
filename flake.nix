@@ -27,6 +27,7 @@
                   nodriver
                   googlemaps
                   black
+                  click
                 ]
               )
             )

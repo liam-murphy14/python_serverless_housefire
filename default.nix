@@ -1,5 +1,6 @@
 { buildPythonApplication
 , googlemaps
+, click
 , nodriver
 , pythonOlder
 , pandas
@@ -23,6 +24,7 @@ buildPythonApplication {
     requests
     nodriver
     googlemaps
+    click
   ];
 
   build-system = [ setuptools ];

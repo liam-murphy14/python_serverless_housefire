@@ -1,5 +1,8 @@
 import sys
 import dotenv
+import housefire.config as config
+from housefire.scraper.scraper_factory import ScraperFactory
+import nodriver as uc
 
 dotenv.load_dotenv()
 from housefire.scraper import (
@@ -36,14 +39,11 @@ async def get_chromedriver_instance() -> uc.Browser:
     )
 
 
-async def main():
+async def scrape_main():
 
-    TEMP_DIR_PATH = get_env_nonnull_dir("TEMP_DIR_PATH")
-
-    HOUSEFIRE_API_KEY = get_env_nonnull("HOUSEFIRE_API_KEY")
 
     try:
-        driver = await get_chromedriver_instance()
+        scraper = await ScraperFactory().get_scraper("pld")
     except Exception as e:
         logger.critical(f"Failed to create chromedriver instance: {e}")
         raise e
@@ -51,7 +51,7 @@ async def main():
     try:
         if len(sys.argv) != 2:
             raise Exception("Usage: python main.py <ticker>")
-
+        
         ticker = sys.argv[1].lower()
         logger.info(f"Scraping data for ticker: {ticker}")
 
@@ -62,17 +62,22 @@ async def main():
         logger.debug(f"Scraped properties data: {properties_dataframe}")
         transformed_dataframe = transform_wrapper(properties_dataframe, ticker)
         logger.debug(f"Transformed properties data: {transformed_dataframe}")
-
+        
         housefire_api = HousefireAPI(HOUSEFIRE_API_KEY)
-
+        
         created_properties = housefire_api.update_properties_by_ticker(
             ticker.upper(), df_to_request(transformed_dataframe)
         )
         logger.info(f"Created properties: {created_properties}")
+        logger.info("Scraping data")
+        scraped_data = await scraper.scrape()
+        logger.info(f"Scraped data: {scraped_data}")
 
     finally:
-        driver.stop()
+        scraper.driver.stop()
 
+def main():
+    uc.loop().run_until_complete(scrape_main())
 
 if __name__ == "__main__":
-    uc.loop().run_until_complete(main())
+    main()

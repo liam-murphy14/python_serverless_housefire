@@ -95,66 +95,16 @@ def delete_temp_dir(temp_dir_path: str) -> None:
         logger.error(f"Error deleting directory at {temp_dir_path}: {e}", exc_info=True)
 
 
-def housefire_geocode_to_housefire_address(housefire_geocode: dict) -> dict:
-    return {
-        "addressInput": housefire_geocode["addressInput"],
-        "address": f"{housefire_geocode['streetNumber']} {housefire_geocode['route']}",
-        "neighborhood": housefire_geocode["locality"],
-        "city": housefire_geocode["administrativeAreaLevel2"],
-        "state": housefire_geocode["administrativeAreaLevel1"],
-        "zip": housefire_geocode["postalCode"],
-        "country": housefire_geocode["country"],
-        "latitude": housefire_geocode["latitude"],
-        "longitude": housefire_geocode["longitude"],
-    }
+
+load_dotenv()
 
 
-def df_to_request(df: pd.DataFrame):
-    """
-    Convert a pandas DataFrame to a list of dictionaries
-    """
-    logger.debug(f"Converting DataFrame to request format for df: {df}")
-    request_dict = df.to_dict(orient="records")
-    logger.debug(f"Converted DataFrame to request format: {request_dict}")
-    return request_dict
-
-
-def acres_to_sqft(acres: float) -> float:
-    return acres * 43560
-
-
-def parse_area_unit(area: str) -> str:
-    area_lower = area.lower()
-    if "ac" in area_lower:
-        return "acres"
-    if "sf" in area_lower or "ft" in area_lower:
-        return "sqft"
-    raise ValueError(f"Unsupported area unit: {area}")
-
-
-def parse_area_range(area: str) -> float:
-    area_parts = area.split("-")
-    if len(area_parts) > 2:
-        raise ValueError(f"Unsupported area range: {area}")
-    if len(area_parts) == 1:
-        logger.debug(f"Found 1 area part: {area_parts[0]}")
-        return parse_area_string(area_parts[0])
-    logger.debug(f"Found 2 area parts: {area_parts[0]} and {area_parts[1]}, averaging")
-    return (parse_area_string(area_parts[0]) + parse_area_string(area_parts[1])) / 2
-
-
-def parse_and_convert_area(area: str) -> float:
-    area_unit = parse_area_unit(area)
-    area_value = parse_area_range(area)
-    if area_unit == "acres":
-        return acres_to_sqft(area_value)
-    return area_value
-
-
-def parse_area_string(area: str) -> float:
-    digits = "".join(list(filter(str.isdigit, area)))
-    return float(digits)
-
+TEMP_DIR_PATH = get_env_nonnull_path("TEMP_DIR_PATH")
+CHROME_PATH = get_env_nonnull_path("CHROME_PATH")
+DEPLOY_ENV = get_env_nonnull("DEPLOY_ENV")
+HOUSEFIRE_API_KEY = get_env_nonnull("HOUSEFIRE_API_KEY")
+GOOGLE_MAPS_API_KEY = get_env_nonnull("GOOGLE_MAPS_API_KEY")
+HOUSEFIRE_DEFAULT_BASE_URL = get_env_nonnull("HOUSEFIRE_DEFAULT_BASE_URL")
 
 if __name__ == "__main__":
     load_dotenv()
