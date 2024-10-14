@@ -19,7 +19,7 @@ class TransformerFactory:
                 "eqix": EqixTransformer,
                 }
 
-    async def get_transformer(self, ticker: str) -> Transformer:
+    def get_transformer(self, ticker: str) -> Transformer:
         """
         Get a new instance of a Transformer subclass
         """

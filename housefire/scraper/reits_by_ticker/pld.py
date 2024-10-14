@@ -55,3 +55,7 @@ class PldScraper(Scraper):
         return df
 
 
+    async def _debug_scrape(self):
+        logger.debug("debug scrape")
+
+

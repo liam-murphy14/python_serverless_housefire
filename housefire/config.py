@@ -40,11 +40,12 @@ def get_env_nonnull_dir(key: str) -> str:
     return value
 
 
+# NOT CURRENTLY USED, BUT MAY BE USEFUL IN THE FUTURE
 # TODO: instead of edge config nonsese, just add these objects to the REIT table in db
 def format_edge_config_ciks():
     CIK_ENDPOINT = "https://sec.gov/files/company_tickers.json"
     to_concat_list = ["{"]
-    reit_csv = pd.read_csv(REIT_CSV_PATH)
+    reit_csv = pd.read_csv("adsf") # TODO: change
     reit_set = set(reit_csv["Symbol"])
     cik_res = r.get(CIK_ENDPOINT)
     cik_data = cik_res.json()
@@ -58,6 +59,7 @@ def format_edge_config_ciks():
     return "\n".join(to_concat_list)
 
 
+# NOT CURRENTLY USED
 # TODO: start using this once nodriver is updated with experimental options
 def create_temp_dir(base_path: str) -> str:
     """
@@ -75,6 +77,7 @@ def create_temp_dir(base_path: str) -> str:
     return new_dir_path
 
 
+# NOT CURRENTLY USED
 # TODO: start using this once nodriver is updated with experimental options
 def delete_temp_dir(temp_dir_path: str) -> None:
     """
@@ -105,15 +108,3 @@ DEPLOY_ENV = get_env_nonnull("DEPLOY_ENV")
 HOUSEFIRE_API_KEY = get_env_nonnull("HOUSEFIRE_API_KEY")
 GOOGLE_MAPS_API_KEY = get_env_nonnull("GOOGLE_MAPS_API_KEY")
 HOUSEFIRE_DEFAULT_BASE_URL = get_env_nonnull("HOUSEFIRE_DEFAULT_BASE_URL")
-
-if __name__ == "__main__":
-    load_dotenv()
-
-    TEMP_DIR_PATH = os.getenv("TEMP_DIR")
-    if TEMP_DIR_PATH is None:
-        raise Exception("TEMP_DIR environment variable not set")
-    REIT_CSV_PATH = os.path.join(TEMP_DIR_PATH, "reits.csv")
-    if not os.path.exists(REIT_CSV_PATH):
-        raise Exception(f"{REIT_CSV_PATH} does not exist")
-    formatted_ciks = format_edge_config_ciks()
-    print(formatted_ciks)

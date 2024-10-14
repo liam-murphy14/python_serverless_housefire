@@ -1,83 +1,74 @@
-import sys
-import dotenv
-import housefire.config as config
+import click
+import nodriver as uc
+
+from housefire.dependency.housefire_api import HousefireAPI
 from housefire.scraper.scraper_factory import ScraperFactory
-import nodriver as uc
+from housefire.transformer.transformer_factory import TransformerFactory
 
-dotenv.load_dotenv()
-from housefire.scraper import (
-    SCRAPERS,
-    scrape_wrapper,
-)
-from housefire.transformer import (
-    TRANSFORMERS,
-    transform_wrapper,
-)
-import nodriver as uc
-from housefire.utils import (
-    get_env_nonnull_dir,
-    get_env_nonnull_file,
-    get_env_nonnull,
-    df_to_request,
-)
-from housefire.dependency import HousefireAPI
-from housefire.logger import get_logger
-
-
-logger = get_logger(__name__)
-
-
-async def get_chromedriver_instance() -> uc.Browser:
-    """
-    Get a new instance of the undetected_chromedriver Chrome driver
-    """
-    CHROME_PATH = get_env_nonnull_file("CHROME_PATH")
-
-    return await uc.start(
-        headless=False,
-        browser_executable_path=CHROME_PATH,
-    )
-
-
-async def scrape_main():
-
-
-    try:
-        scraper = await ScraperFactory().get_scraper("pld")
-    except Exception as e:
-        logger.critical(f"Failed to create chromedriver instance: {e}")
-        raise e
-
-    try:
-        if len(sys.argv) != 2:
-            raise Exception("Usage: python main.py <ticker>")
-        
-        ticker = sys.argv[1].lower()
-        logger.info(f"Scraping data for ticker: {ticker}")
-
-        if ticker not in SCRAPERS or ticker not in TRANSFORMERS:
-            raise ValueError(f"Unsupported ticker: {ticker}")
-
-        properties_dataframe = await scrape_wrapper(driver, ticker, TEMP_DIR_PATH)
-        logger.debug(f"Scraped properties data: {properties_dataframe}")
-        transformed_dataframe = transform_wrapper(properties_dataframe, ticker)
-        logger.debug(f"Transformed properties data: {transformed_dataframe}")
-        
-        housefire_api = HousefireAPI(HOUSEFIRE_API_KEY)
-        
-        created_properties = housefire_api.update_properties_by_ticker(
-            ticker.upper(), df_to_request(transformed_dataframe)
-        )
-        logger.info(f"Created properties: {created_properties}")
-        logger.info("Scraping data")
-        scraped_data = await scraper.scrape()
-        logger.info(f"Scraped data: {scraped_data}")
-
-    finally:
-        scraper.driver.stop()
-
+@click.group()
 def main():
-    uc.loop().run_until_complete(scrape_main())
+    # TODO: get configs from file or env vars ??
+    pass
 
-if __name__ == "__main__":
-    main()
+@main.command()
+@click.argument("ticker", required=True)
+def run_data_pipeline(ticker: str):
+    """
+    Run the full data pipeline for scraping the TICKER website and uploading to housefire.
+    """
+    uc.loop().run_until_complete(run_data_pipeline_main(ticker))
+
+async def run_data_pipeline_main(ticker: str):
+    scraper_factory = ScraperFactory()
+    scraper = await scraper_factory.get_scraper(ticker)
+    scraped_data = await scraper.scrape()
+
+    transformer_factory = TransformerFactory()
+    transformer = transformer_factory.get_transformer(ticker)
+    transformed_data = transformer.transform(scraped_data)
+
+    housefire_api = HousefireAPI()
+
+    housefire_api.update_properties_by_ticker(ticker.upper(), HousefireAPI.df_to_request(transformed_data))
+
+
+@main.command()
+@click.argument("ticker", required=True)
+@click.option("--debug", default=False, is_flag=True, help="Run the scraper debugger function instead of the full scraper.")
+def scrape(ticker: str, debug: bool):
+    """
+    Scrapes the TICKER website for property data.
+    """
+    uc.loop().run_until_complete(scrape_main(ticker, debug))
+
+async def scrape_main(ticker: str, debug: bool):
+    scraper_factory = ScraperFactory()
+    scraper = await scraper_factory.get_scraper(ticker)
+    if debug:
+        await scraper._debug_scrape()
+    else:
+        click.echo("This feature is not yet implemented. To test scraping on its own, use the --debug flag.")
+        # NOT CURRENTLY USED
+        # TODO: use this once i have implemented some caching/magic resilience for the scraper
+        # return await scraper.scrape()
+
+
+# NOT CURRENTLY USED
+# TODO: implement this once i have implemented some local caching/magic resilience for the scraper and modularized the scrape and transforms to save to files separately
+# @main.command()
+# @click.argument("ticker", required=True)
+# @click.option("--debug", default=False, is_flag=True, help="Run the transformer debugger function instead of the full transformer.")
+# def transform(ticker: str, debug: bool):
+#     """
+#     Transforms the TICKER scraped data into a standardized format.
+#     """
+#     transformer_factory = TransformerFactory()
+#     transformer = transformer_factory.get_transformer(ticker)
+#     if debug:
+#         transformer._debug_transform()
+#     else:
+#         click.echo("This feature is not yet implemented. To test transforming on its own, use the --debug flag.")
+
+# TODO: write an uploader as well
+
+
