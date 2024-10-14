@@ -6,6 +6,7 @@ from housefire.transformer.transformer import Transformer
 
 logger = get_logger(__name__)
 
+
 class GeocodeTransformer(Transformer):
     """
     Transformer that geocodes addresses during the transformation process.
@@ -24,13 +25,16 @@ class GeocodeTransformer(Transformer):
         address_inputs = df["address"].to_list()
         df.drop(columns=["address"], inplace=True)
         records = df.to_dict(orient="records")
-        housefire_geocodes = self.google_geocode_api_client.geocode_addresses(address_inputs)
+        housefire_geocodes = self.google_geocode_api_client.geocode_addresses(
+            address_inputs
+        )
         for address_input, record in zip(address_inputs, records):
             record["addressInput"] = address_input
             if address_input not in housefire_geocodes:
                 logger.error(f"Failed to geocode address: {address_input}")
                 continue
             housefire_geocode = housefire_geocodes[address_input]
-            record.update(HousefireAPI.housefire_geocode_to_housefire_address(housefire_geocode))
+            record.update(
+                HousefireAPI.housefire_geocode_to_housefire_address(housefire_geocode)
+            )
         return pd.DataFrame(records)
-

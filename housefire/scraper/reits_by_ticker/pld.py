@@ -6,6 +6,7 @@ from housefire.logger import get_logger
 
 logger = get_logger(__name__)
 
+
 class PldScraper(Scraper):
     """
     scraper for Prologis, scrapes CSV from website
@@ -36,7 +37,10 @@ class PldScraper(Scraper):
         self._wait(10)
 
         file_list = list(
-            filter(lambda filename: not filename.startswith("."), os.listdir(self.temp_dir_path))
+            filter(
+                lambda filename: not filename.startswith("."),
+                os.listdir(self.temp_dir_path),
+            )
         )
 
         if len(file_list) == 0:
@@ -54,8 +58,5 @@ class PldScraper(Scraper):
         os.remove(filepath)
         return df
 
-
     async def _debug_scrape(self):
         logger.debug("debug scrape")
-
-

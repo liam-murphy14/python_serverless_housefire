@@ -5,6 +5,7 @@ from housefire.scraper.scraper import Scraper
 
 logger = get_logger(__name__)
 
+
 class WellScraper(Scraper):
     def __init__(self, driver: uc.Browser):
         super().__init__(driver)
@@ -31,7 +32,6 @@ class WellScraper(Scraper):
 
         return pd.concat(df_list)
 
-
     async def _welltower_scrape_property_urls(self, tab: uc.Tab) -> list[str]:
         self._wait(30)
         link_divs = await tab.query_selector_all("a[href]")
@@ -43,7 +43,6 @@ class WellScraper(Scraper):
                 links_without_https,
             )
         )
-
 
     async def _welltower_scrape_single_property(self, tab: uc.Tab) -> pd.DataFrame:
         name_div = await tab.select(".chakra-heading")
@@ -60,17 +59,19 @@ class WellScraper(Scraper):
             }
         )
 
-
     async def _debug_scrape(self):
         # WELL welltower scrape property links
-        tab = await self.driver.get("https://medicaloffice.welltower.com/search?address=USA&min=null&max=null&moveInTiming=")
+        tab = await self.driver.get(
+            "https://medicaloffice.welltower.com/search?address=USA&min=null&max=null&moveInTiming="
+        )
         logger.debug("SCRAPED PROPERTY URLS")
         logger.debug(await self._welltower_scrape_property_urls(tab))
         logger.debug("\n\n\n")
 
         # WELL welltower scrape single property
-        tab = await self.driver.get("https://medicaloffice.welltower.com/450-south-kitsap-boulevard")
+        tab = await self.driver.get(
+            "https://medicaloffice.welltower.com/450-south-kitsap-boulevard"
+        )
         logger.debug("SCRAPED SINGLE PROPERTY")
         logger.debug(await self._welltower_scrape_single_property(tab))
         logger.debug("\n\n\n")
-

@@ -4,7 +4,6 @@
 , nodriver
 , pythonOlder
 , pandas
-, python-dotenv
 , requests
 , setuptools
 }:
@@ -20,7 +19,6 @@ buildPythonApplication {
 
   dependencies = [
     pandas
-    python-dotenv
     requests
     nodriver
     googlemaps

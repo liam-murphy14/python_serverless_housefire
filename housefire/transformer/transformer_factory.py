@@ -5,6 +5,7 @@ from housefire.transformer.reits_by_ticker.well import WellTransformer
 from housefire.transformer.reits_by_ticker.eqix import EqixTransformer
 from housefire.transformer.transformer import Transformer
 
+
 class TransformerFactory:
     """
     Factory class for creating Transformer instances
@@ -12,12 +13,12 @@ class TransformerFactory:
 
     def __init__(self):
         self.transformer_map = {
-                "pld": PldTransformer,
-                "spg": SpgTransformer,
-                "dlr": DlrTransformer,
-                "well": WellTransformer,
-                "eqix": EqixTransformer,
-                }
+            "pld": PldTransformer,
+            "spg": SpgTransformer,
+            "dlr": DlrTransformer,
+            "well": WellTransformer,
+            "eqix": EqixTransformer,
+        }
 
     def get_transformer(self, ticker: str) -> Transformer:
         """
@@ -27,4 +28,3 @@ class TransformerFactory:
             raise ValueError(f"Unsupported ticker: {ticker}")
 
         return self.transformer_map[ticker]()
-

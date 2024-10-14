@@ -7,6 +7,7 @@ import time
 
 logger = get_logger(__name__)
 
+
 class GoogleGeocodeAPI(Dependency):
 
     def __init__(self, housefire_api_client: HousefireAPI):

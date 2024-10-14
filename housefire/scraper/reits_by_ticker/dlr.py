@@ -5,11 +5,11 @@ from housefire.scraper.scraper import Scraper
 
 logger = get_logger(__name__)
 
+
 class DlrScraper(Scraper):
     def __init__(self, driver: uc.Browser):
         super().__init__(driver)
         self.ticker = "dlr"
-
 
     async def execute_scrape(self) -> pd.DataFrame:
         start_url = "https://www.digitalrealty.com/data-centers"
@@ -32,21 +32,21 @@ class DlrScraper(Scraper):
 
         return pd.concat(df_list)
 
-
     async def _digital_realty_scrape_region_urls(self, tab: uc.Tab) -> list[str]:
         link_elements = await tab.query_selector_all(".region")
         base_url = "https://www.digitalrealty.com"
         return [base_url + element.attrs["href"] for element in link_elements]
 
-
     async def _digital_realty_scrape_single_region(self, tab: uc.Tab) -> pd.DataFrame:
         self._wait(30)
         property_divs = await tab.query_selector_all(".a-metro-map-link")
         names = [
-            (await div.query_selector(".title")).text_all.strip() for div in property_divs
+            (await div.query_selector(".title")).text_all.strip()
+            for div in property_divs
         ]
         address_inputs = [
-            (await div.query_selector(".sub-title")).text.strip() for div in property_divs
+            (await div.query_selector(".sub-title")).text.strip()
+            for div in property_divs
         ]
         sq_footage_parts = [
             (await div.query_selector(".bottom-part")).children[0].text.strip()
@@ -68,4 +68,3 @@ class DlrScraper(Scraper):
         logger.debug(f"SCRAPED SINGLE REGION DF")
         logger.debug(df)
         logger.debug("\n\n\n")
-

@@ -22,7 +22,6 @@
                 ps: with ps; [
                   # dev dependencies
                   pandas
-                  python-dotenv
                   requests
                   nodriver
                   googlemaps

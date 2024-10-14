@@ -1,7 +1,6 @@
 import requests as r
 import uuid
 import pandas as pd
-from dotenv import load_dotenv
 import os
 from housefire.logger import get_logger
 
@@ -45,7 +44,7 @@ def get_env_nonnull_dir(key: str) -> str:
 def format_edge_config_ciks():
     CIK_ENDPOINT = "https://sec.gov/files/company_tickers.json"
     to_concat_list = ["{"]
-    reit_csv = pd.read_csv("adsf") # TODO: change
+    reit_csv = pd.read_csv("adsf")  # TODO: change
     reit_set = set(reit_csv["Symbol"])
     cik_res = r.get(CIK_ENDPOINT)
     cik_data = cik_res.json()
@@ -96,10 +95,6 @@ def delete_temp_dir(temp_dir_path: str) -> None:
         logger.info(f"Deleted directory at {temp_dir_path}")
     except Exception as e:
         logger.error(f"Error deleting directory at {temp_dir_path}: {e}", exc_info=True)
-
-
-
-load_dotenv()
 
 
 TEMP_DIR_PATH = get_env_nonnull_path("TEMP_DIR_PATH")

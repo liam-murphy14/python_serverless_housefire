@@ -5,6 +5,7 @@ from housefire.scraper.scraper import Scraper
 
 logger = get_logger(__name__)
 
+
 class EqixScraper(Scraper):
     def __init__(self, driver: uc.Browser):
         super().__init__(driver)
@@ -22,7 +23,9 @@ class EqixScraper(Scraper):
             self._jiggle()
             city_tab = await self.driver.get(city_url, new_tab=True)
             try:
-                property_urls.extend(await self._eqix_scrape_single_city_property_urls(city_tab))
+                property_urls.extend(
+                    await self._eqix_scrape_single_city_property_urls(city_tab)
+                )
             except Exception as e:
                 logger.warning(f"error scraping city: {city_url}, {e}")
             finally:
@@ -42,20 +45,20 @@ class EqixScraper(Scraper):
 
         return pd.concat(df_list)
 
-
     async def _eqix_scrape_city_urls(self, tab: uc.Tab) -> list[str]:
         tab_content = await tab.select(".tabs-content")
         link_elements = await tab_content.query_selector_all(".regions_metro-link")
         logger.debug(f"found link elements: {link_elements}")
         return [link_element.attrs["href"] for link_element in link_elements]
 
-
     async def _eqix_scrape_single_city_property_urls(self, tab: uc.Tab) -> list[str]:
         urls_to_scrape = list()
         try:
             dropdown_menu_button = await tab.select("#dropdownMenuButton")
             logger.debug(f"dropdown_menu_button: {dropdown_menu_button}")
-            dropdown_menu_list = (await tab.select(".ibx-dropdown")).children[0].children
+            dropdown_menu_list = (
+                (await tab.select(".ibx-dropdown")).children[0].children
+            )
             logger.debug(f"found dropdown_menu_list: {dropdown_menu_list}")
             urls_to_scrape = [item.attrs["href"] for item in dropdown_menu_list]
         except TimeoutError as e:
@@ -64,7 +67,8 @@ class EqixScraper(Scraper):
             logger.debug(f"primary_button_list: {primary_button_list}")
             primary_buttons_with_real_href = list(
                 filter(
-                    lambda button: "href" in button.attrs and button.attrs["href"] != "#",
+                    lambda button: "href" in button.attrs
+                    and button.attrs["href"] != "#",
                     primary_button_list,
                 )
             )
@@ -79,7 +83,6 @@ class EqixScraper(Scraper):
             urls_to_scrape.append(primary_button.attrs["href"])
 
         return urls_to_scrape
-
 
     async def _eqix_scrape_single_property(self, tab: uc.Tab) -> pd.DataFrame:
         name_div = await tab.select(".hero-slice-sub-headline")
@@ -166,5 +169,3 @@ class EqixScraper(Scraper):
         logger.debug("SCRAPED SINGLE PROPERTY URL")
         logger.debug(df)
         logger.debug("\n\n\n")
-
-

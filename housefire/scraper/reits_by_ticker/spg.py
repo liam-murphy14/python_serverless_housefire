@@ -5,6 +5,7 @@ from housefire.scraper.scraper import Scraper
 
 logger = get_logger(__name__)
 
+
 class SpgScraper(Scraper):
     def __init__(self, driver: uc.Browser):
         super().__init__(driver)
@@ -25,7 +26,9 @@ class SpgScraper(Scraper):
         names.extend(int_names)
         locations.extend(int_locations)
 
-        geo_addresses = [f"{name}, {location}" for name, location in zip(names, locations)]
+        geo_addresses = [
+            f"{name}, {location}" for name, location in zip(names, locations)
+        ]
 
         return pd.DataFrame(
             {
@@ -33,7 +36,6 @@ class SpgScraper(Scraper):
                 "address": geo_addresses,
             }
         )
-
 
     async def _simon_scrape_property_mall(
         self,
@@ -62,7 +64,6 @@ class SpgScraper(Scraper):
         logger.debug(f"found property locations: {property_locations}")
 
         return property_links, property_names, property_locations
-
 
     async def _debug_scrape(self):
         start_url = "https://www.simon.com/mall"

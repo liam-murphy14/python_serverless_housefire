@@ -7,6 +7,7 @@ from housefire.scraper.reits_by_ticker.eqix import EqixScraper
 import nodriver as uc
 import housefire.config as config
 
+
 class ScraperFactory:
     """
     Factory class for creating Scraper instances
@@ -14,12 +15,12 @@ class ScraperFactory:
 
     def __init__(self):
         self.scraper_map = {
-                "pld": PldScraper,
-                "spg": SpgScraper,
-                "dlr": DlrScraper,
-                "well": WellScraper,
-                "eqix": EqixScraper,
-                }
+            "pld": PldScraper,
+            "spg": SpgScraper,
+            "dlr": DlrScraper,
+            "well": WellScraper,
+            "eqix": EqixScraper,
+        }
 
     async def get_scraper(self, ticker: str) -> Scraper:
         """

@@ -8,6 +8,7 @@ import time
 
 logger = get_logger(__name__)
 
+
 class Scraper(ABC):
     def __init__(self, driver: uc.Browser):
         self.driver = driver

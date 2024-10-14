@@ -6,6 +6,7 @@ from housefire.dependency.dependency import Dependency
 
 logger = get_logger(__name__)
 
+
 class HousefireAPI(Dependency):
     """
     Housefire API client
@@ -14,9 +15,7 @@ class HousefireAPI(Dependency):
         api_key (str): Housefire API key
     """
 
-    def __init__(
-        self, base_url: str = config.HOUSEFIRE_DEFAULT_BASE_URL
-    ):
+    def __init__(self, base_url: str = config.HOUSEFIRE_DEFAULT_BASE_URL):
         self.base_url = base_url
         self.headers = {
             "x-api-key": config.HOUSEFIRE_API_KEY,
@@ -156,7 +155,6 @@ class HousefireAPI(Dependency):
             raise Exception(f"unexpected error creating geocode: {r}")
         return r.json()
 
-
     @staticmethod
     def housefire_geocode_to_housefire_address(housefire_geocode: dict) -> dict:
         return {
@@ -170,4 +168,3 @@ class HousefireAPI(Dependency):
             "latitude": housefire_geocode["latitude"],
             "longitude": housefire_geocode["longitude"],
         }
-
