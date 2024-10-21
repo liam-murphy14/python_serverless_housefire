@@ -1,3 +1,5 @@
+{ chromeExecutablePath }:
+
 { buildPythonApplication
 , googlemaps
 , click
@@ -16,6 +18,11 @@ buildPythonApplication {
   disabled = pythonOlder "3.9";
 
   src = ./.;
+
+  postPatch = ''
+    substituteInPlace ./housefire/config.py \
+      --subst-var-by NIX_TARGET_CHROME_PATH "${chromeExecutablePath}"
+  '';
 
   dependencies = [
     pandas

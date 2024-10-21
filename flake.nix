@@ -11,9 +11,16 @@
       });
     in
     {
-      packages = forEachSupportedSystem ({ pkgs }: {
-        default = pkgs.python3Packages.callPackage ./default.nix { };
-      });
+      packages = forEachSupportedSystem ({ pkgs }:
+        let
+          chromeExecutablePath = if pkgs.stdenv.isDarwin then "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" else "${pkgs.chromium}/bin/chromium";
+          wrappedHousefire = pkgs.callPackage ./default.nix {
+            chromeExecutablePath = chromeExecutablePath;
+          };
+        in
+        {
+          default = pkgs.python3Packages.callPackage wrappedHousefire { };
+        });
       devShells = forEachSupportedSystem ({ pkgs }: {
         default = pkgs.mkShell {
           packages = with pkgs; [

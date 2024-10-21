@@ -1,18 +1,152 @@
 import click
 import nodriver as uc
+import os
+import configparser
 
 from housefire.dependency.housefire_api import HousefireAPI
 from housefire.scraper.scraper_factory import ScraperFactory
 from housefire.transformer.transformer_factory import TransformerFactory
 
 
-@click.group()
 def main():
-    # TODO: get configs from file or env vars ??
-    pass
+    housefire(obj={})
 
 
-@main.command()
+@click.group()
+@click.option(
+    "--config-path",
+    default=f"{os.getenv('HOME')}/.config/housefire/default.ini",
+    help="Path to the config file.",
+    type=click.Path(
+        dir_okay=False,
+        exists=False,
+        resolve_path=True,
+        readable=True,
+        writable=True,
+        allow_dash=False,
+    ),
+)
+@click.pass_context
+def housefire(ctx, config_path: str):
+    """
+    Housefire CLI for scraping and uploading property data.
+    """
+    ctx.ensure_object(dict)
+    ctx.obj["CONFIG_PATH"] = config_path
+    if not os.path.exists(config_path):
+        click.echo(
+            f"Looks like there is no config file at {config_path}. Run 'housefire init' to get started."
+        )
+        return
+
+
+@housefire.command()
+@click.option(
+    "--temp-dir-path",
+    help="WARNING: must be the default folder that Google Chrome downloads to in order for download-based scrapers to work properly. Path to the temporary directory where scraped data will be stored.",
+    type=click.Path(
+        file_okay=False,
+        dir_okay=True,
+        exists=True,
+        resolve_path=True,
+        readable=True,
+        writable=True,
+        allow_dash=False,
+    ),
+)
+@click.option("--housefire-api-key", help="Housefire API key.", type=str)
+@click.option("--google-maps-api-key", help="Google Maps API key.", type=str)
+@click.option("--housefire-base-url", help="Housefire API base URL.", type=str)
+@click.pass_context
+def init(
+    ctx,
+    temp_dir_path: str,
+    housefire_api_key: str,
+    google_maps_api_key: str,
+    housefire_base_url: str,
+):
+    """
+    Initialize the housefire CLI, creating a config file if it does not already exist.
+    """
+    config_path = ctx.obj["CONFIG_PATH"]
+    if not os.path.exists(config_path):
+        click.echo(f"Creating config file at {config_path}.")
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+
+    with open(config_path, "w") as configfile:
+        config_object = configparser.ConfigParser()
+        config_object.read(configfile)
+        if "HOUSEFIRE" not in config_object:
+            config_object["HOUSEFIRE"] = {}
+
+        # set defaults
+        temp_dir_path_default = f"{os.getenv('HOME')}/Downloads/"
+        housefire_base_url_default = "https://housefire.liammurphydev.com/api/"
+
+        if temp_dir_path is None or len(temp_dir_path) == 0:
+            temp_dir_prompt_value = (
+                config_object["HOUSEFIRE"].get("TEMP_DIR_PATH")
+                if "TEMP_DIR_PATH" in config_object["HOUSEFIRE"]
+                else temp_dir_path_default
+            )
+            temp_dir_path = click.prompt(
+                f"Enter the path to the temporary directory where scraped data will be stored. Press enter to accept current value=[{temp_dir_prompt_value}].",
+                default=temp_dir_prompt_value,
+                type=click.Path(
+                    file_okay=False,
+                    dir_okay=True,
+                    exists=True,
+                    resolve_path=True,
+                    readable=True,
+                    writable=True,
+                    allow_dash=False,
+                ),
+            )
+        config_object["HOUSEFIRE"]["TEMP_DIR_PATH"] = temp_dir_path
+
+        if housefire_api_key is None or len(housefire_api_key) == 0:
+            housefire_api_key_prompt_value = (
+                config_object["HOUSEFIRE"].get("HOUSEFIRE_API_KEY")
+                if "HOUSEFIRE_API_KEY" in config_object["HOUSEFIRE"]
+                else "None"
+            )
+            housefire_api_key = click.prompt(
+                f"Enter the Housefire API key. Press enter to accept current value=[{housefire_api_key_prompt_value}].",
+                default=housefire_api_key_prompt_value,
+                type=str,
+            )
+        config_object["HOUSEFIRE"]["HOUSEFIRE_API_KEY"] = housefire_api_key
+
+        if google_maps_api_key is None or len(google_maps_api_key) == 0:
+            google_maps_api_key_prompt_value = (
+                config_object["HOUSEFIRE"].get("GOOGLE_MAPS_API_KEY")
+                if "GOOGLE_MAPS_API_KEY" in config_object["HOUSEFIRE"]
+                else "None"
+            )
+            google_maps_api_key = click.prompt(
+                f"Enter the Google Maps API key. Press enter to accept current value=[{google_maps_api_key_prompt_value}].",
+                default=google_maps_api_key_prompt_value,
+                type=str,
+            )
+        config_object["HOUSEFIRE"]["GOOGLE_MAPS_API_KEY"] = google_maps_api_key
+
+        if housefire_base_url is None or len(housefire_base_url) == 0:
+            housefire_base_url_prompt_value = (
+                config_object["HOUSEFIRE"].get("HOUSEFIRE_BASE_URL")
+                if "HOUSEFIRE_BASE_URL" in config_object["HOUSEFIRE"]
+                else housefire_base_url_default
+            )
+            housefire_base_url = click.prompt(
+                f"Enter the Housefire API base URL. Press enter to accept current value=[{housefire_base_url_prompt_value}].",
+                default=housefire_base_url_prompt_value,
+                type=str,
+            )
+        config_object["HOUSEFIRE"]["HOUSEFIRE_BASE_URL"] = housefire_base_url
+
+        config_object.write(configfile)
+
+
+@housefire.command()
 @click.argument("ticker", required=True)
 def run_data_pipeline(ticker: str):
     """
@@ -37,7 +171,7 @@ async def run_data_pipeline_main(ticker: str):
     )
 
 
-@main.command()
+@housefire.command()
 @click.argument("ticker", required=True)
 @click.option(
     "--debug",

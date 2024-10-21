@@ -98,8 +98,7 @@ def delete_temp_dir(temp_dir_path: str) -> None:
 
 
 TEMP_DIR_PATH = get_env_nonnull_path("TEMP_DIR_PATH")
-CHROME_PATH = get_env_nonnull_path("CHROME_PATH")
-DEPLOY_ENV = get_env_nonnull("DEPLOY_ENV")
+CHROME_PATH = "@NIX_TARGET_CHROME_PATH@"  # set this at build time with nix
 HOUSEFIRE_API_KEY = get_env_nonnull("HOUSEFIRE_API_KEY")
 GOOGLE_MAPS_API_KEY = get_env_nonnull("GOOGLE_MAPS_API_KEY")
 HOUSEFIRE_DEFAULT_BASE_URL = get_env_nonnull("HOUSEFIRE_DEFAULT_BASE_URL")
