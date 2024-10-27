@@ -36,22 +36,24 @@ def housefire(ctx, config_path: str):
     """
     ctx.ensure_object(dict)
     ctx.obj["CONFIG_PATH"] = config_path
+    # skip this check if the user is running the init command
+    if ctx.invoked_subcommand == "init":
+        return
     if not os.path.exists(config_path):
         click.echo(
             f"Looks like there is no config file at {config_path}. Run 'housefire init' to get started."
         )
-        return
+        raise SystemExit(0)
     # TODO: make sure this won't write an empty file
-    with open(config_path, "r") as configfile:
-        config_object = configparser.ConfigParser()
-        config_object.read(configfile)
-        try:
-            ctx.obj["CONFIG"] = HousefireConfig(config_object)
-        except ValueError:
-            click.echo(
-                f"Looks like your config file at {config_path} is not initialized. Run 'housefire init' to get started."
-            )
-            return
+    config_object = configparser.ConfigParser()
+    config_object.read(config_path)
+    try:
+        ctx.obj["CONFIG"] = HousefireConfig(config_object)
+    except ValueError:
+        click.echo(
+            f"Looks like your config file at {config_path} is not initialized. Run 'housefire init' to get started."
+        )
+        raise SystemExit(0)
 
 
 @housefire.command()
@@ -89,90 +91,96 @@ def init(
         click.echo(f"Creating config file at {config_path}.")
         os.makedirs(os.path.dirname(config_path), exist_ok=True)
 
-    with open(config_path, "w") as configfile:
-        config_object = configparser.ConfigParser()
-        config_object.read(configfile)
-        if "HOUSEFIRE" not in config_object:
-            config_object["HOUSEFIRE"] = {}
+    config_object = configparser.ConfigParser()
+    config_object.read(config_path)
+    print(config_object)
+    if "HOUSEFIRE" not in config_object:
+        config_object["HOUSEFIRE"] = {}
 
-        # set defaults
-        temp_dir_path_default = f"{os.getenv('HOME')}/Downloads/"
-        housefire_base_url_default = "https://housefire.liammurphydev.com/api/"
-        deploy_env_default = "development"
+    print(config_object["HOUSEFIRE"])
+    print(config_object["HOUSEFIRE"].get("TEMP_DIR_PATH"))
+    print(config_object["HOUSEFIRE"].get("HOUSEFIRE_API_KEY"))
+    # set defaults
+    temp_dir_path_default = f"{os.getenv('HOME')}/Downloads/"
+    housefire_base_url_default = "https://housefire.liammurphydev.com/api/"
+    deploy_env_default = "development"
 
-        if temp_dir_path is None or len(temp_dir_path) == 0:
-            temp_dir_prompt_value = (
-                config_object["HOUSEFIRE"].get("TEMP_DIR_PATH")
-                if "TEMP_DIR_PATH" in config_object["HOUSEFIRE"]
-                else temp_dir_path_default
-            )
-            temp_dir_path = click.prompt(
-                f"Enter the path to the temporary directory where scraped data will be stored. Press enter to accept current value=[{temp_dir_prompt_value}].",
-                default=temp_dir_prompt_value,
-                type=click.Path(
-                    file_okay=False,
-                    dir_okay=True,
-                    exists=True,
-                    resolve_path=True,
-                    readable=True,
-                    writable=True,
-                    allow_dash=False,
-                ),
-            )
-        config_object["HOUSEFIRE"]["TEMP_DIR_PATH"] = temp_dir_path
+    if temp_dir_path is None or len(temp_dir_path) == 0:
+        temp_dir_prompt_value = (
+            config_object["HOUSEFIRE"].get("TEMP_DIR_PATH")
+            if "TEMP_DIR_PATH" in config_object["HOUSEFIRE"]
+            else temp_dir_path_default
+        )
+        temp_dir_path = click.prompt(
+            f"Enter the path to the temporary directory where scraped data will be stored. Press enter to accept current value",
+            default=temp_dir_prompt_value,
+            type=click.Path(
+                file_okay=False,
+                dir_okay=True,
+                exists=True,
+                resolve_path=True,
+                readable=True,
+                writable=True,
+                allow_dash=False,
+            ),
+        )
+    config_object["HOUSEFIRE"]["TEMP_DIR_PATH"] = temp_dir_path
 
-        if housefire_api_key is None or len(housefire_api_key) == 0:
-            housefire_api_key_prompt_value = (
-                config_object["HOUSEFIRE"].get("HOUSEFIRE_API_KEY")
-                if "HOUSEFIRE_API_KEY" in config_object["HOUSEFIRE"]
-                else "None"
-            )
-            housefire_api_key = click.prompt(
-                f"Enter the Housefire API key. Press enter to accept current value=[{housefire_api_key_prompt_value}].",
-                default=housefire_api_key_prompt_value,
-                type=str,
-            )
-        config_object["HOUSEFIRE"]["HOUSEFIRE_API_KEY"] = housefire_api_key
+    if housefire_api_key is None or len(housefire_api_key) == 0:
+        housefire_api_key_prompt_value = (
+            config_object["HOUSEFIRE"].get("HOUSEFIRE_API_KEY")
+            if "HOUSEFIRE_API_KEY" in config_object["HOUSEFIRE"]
+            else "None"
+        )
+        housefire_api_key = click.prompt(
+            f"Enter the Housefire API key. Press enter to accept current value",
+            default=housefire_api_key_prompt_value,
+            type=str,
+        )
+    config_object["HOUSEFIRE"]["HOUSEFIRE_API_KEY"] = housefire_api_key
 
-        if google_maps_api_key is None or len(google_maps_api_key) == 0:
-            google_maps_api_key_prompt_value = (
-                config_object["HOUSEFIRE"].get("GOOGLE_MAPS_API_KEY")
-                if "GOOGLE_MAPS_API_KEY" in config_object["HOUSEFIRE"]
-                else "None"
-            )
-            google_maps_api_key = click.prompt(
-                f"Enter the Google Maps API key. Press enter to accept current value=[{google_maps_api_key_prompt_value}].",
-                default=google_maps_api_key_prompt_value,
-                type=str,
-            )
-        config_object["HOUSEFIRE"]["GOOGLE_MAPS_API_KEY"] = google_maps_api_key
+    if google_maps_api_key is None or len(google_maps_api_key) == 0:
+        google_maps_api_key_prompt_value = (
+            config_object["HOUSEFIRE"].get("GOOGLE_MAPS_API_KEY")
+            if "GOOGLE_MAPS_API_KEY" in config_object["HOUSEFIRE"]
+            else "None"
+        )
+        google_maps_api_key = click.prompt(
+            f"Enter the Google Maps API key. Press enter to accept current value",
+            default=google_maps_api_key_prompt_value,
+            type=str,
+        )
+    config_object["HOUSEFIRE"]["GOOGLE_MAPS_API_KEY"] = google_maps_api_key
 
-        if housefire_base_url is None or len(housefire_base_url) == 0:
-            housefire_base_url_prompt_value = (
-                config_object["HOUSEFIRE"].get("HOUSEFIRE_BASE_URL")
-                if "HOUSEFIRE_BASE_URL" in config_object["HOUSEFIRE"]
-                else housefire_base_url_default
-            )
-            housefire_base_url = click.prompt(
-                f"Enter the Housefire API base URL. Press enter to accept current value=[{housefire_base_url_prompt_value}].",
-                default=housefire_base_url_prompt_value,
-                type=str,
-            )
-        config_object["HOUSEFIRE"]["HOUSEFIRE_BASE_URL"] = housefire_base_url
+    if housefire_base_url is None or len(housefire_base_url) == 0:
+        housefire_base_url_prompt_value = (
+            config_object["HOUSEFIRE"].get("HOUSEFIRE_BASE_URL")
+            if "HOUSEFIRE_BASE_URL" in config_object["HOUSEFIRE"]
+            else housefire_base_url_default
+        )
+        housefire_base_url = click.prompt(
+            f"Enter the Housefire API base URL. Press enter to accept current value",
+            default=housefire_base_url_prompt_value,
+            type=str,
+        )
+    config_object["HOUSEFIRE"]["HOUSEFIRE_BASE_URL"] = housefire_base_url
 
-        if deploy_env is None or len(deploy_env) == 0:
-            deploy_env_prompt_value = (
-                config_object["HOUSEFIRE"].get("DEPLOY_ENV")
-                if "DEPLOY_ENV" in config_object["HOUSEFIRE"]
-                else deploy_env_default
-            )
-            deploy_env = click.prompt(
-                f"Enter the deploy environment. Press enter to accept current value=[{deploy_env_prompt_value}].",
-                default=deploy_env_prompt_value,
-                type=str,
-            )
+    if deploy_env is None or len(deploy_env) == 0:
+        deploy_env_prompt_value = (
+            config_object["HOUSEFIRE"].get("DEPLOY_ENV")
+            if "DEPLOY_ENV" in config_object["HOUSEFIRE"]
+            else deploy_env_default
+        )
+        deploy_env = click.prompt(
+            f"Enter the deploy environment. Press enter to accept current value",
+            default=deploy_env_prompt_value,
+            type=str,
+        )
+    config_object["HOUSEFIRE"]["DEPLOY_ENV"] = deploy_env
 
-        config_object.write(configfile)
+    with open(config_path, "w") as config_file:
+        config_object.write(config_file)
+    click.echo(f"Config file at {config_path} has been initialized.")
 
 
 @housefire.command()
