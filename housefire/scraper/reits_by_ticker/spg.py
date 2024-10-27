@@ -1,15 +1,11 @@
-from housefire.logger import get_logger
 import nodriver as uc
 import pandas as pd
 from housefire.scraper.scraper import Scraper
 
-logger = get_logger(__name__)
-
 
 class SpgScraper(Scraper):
-    def __init__(self, driver: uc.Browser):
-        super().__init__(driver)
-        self.ticker = "spg"
+    def __init__(self):
+        super().__init__()
 
     async def execute_scrape(self) -> pd.DataFrame:
         us_start_url = "https://www.simon.com/mall"
@@ -49,24 +45,24 @@ class SpgScraper(Scraper):
         properties_div = await tab.query_selector(".mall-list")
         property_link_elements = await properties_div.query_selector_all("a")
         property_links = [element.attrs["href"] for element in property_link_elements]
-        logger.debug(f"found property links: {property_links}")
+        self.logger.debug(f"found property links: {property_links}")
 
         property_names = [
             (await element.query_selector(".mall-list-item-name")).text
             for element in property_link_elements
         ]
-        logger.debug(f"found property names: {property_names}")
+        self.logger.debug(f"found property names: {property_names}")
 
         property_locations = [
             (await element.query_selector(".mall-list-item-location")).text
             for element in property_link_elements
         ]
-        logger.debug(f"found property locations: {property_locations}")
+        self.logger.debug(f"found property locations: {property_locations}")
 
         return property_links, property_names, property_locations
 
     async def _debug_scrape(self):
         start_url = "https://www.simon.com/mall"
-        logger.debug(f"starting debug scrape for {self.ticker} on {start_url}")
+        self.logger.debug(f"starting debug scrape for {self.ticker} on {start_url}")
         tab = await self.driver.get(start_url)
-        logger.debug(await self._simon_scrape_property_mall(tab))
+        self.logger.debug(await self._simon_scrape_property_mall(tab))

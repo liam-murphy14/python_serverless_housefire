@@ -1,15 +1,11 @@
-from housefire.logger import get_logger
 import nodriver as uc
 import pandas as pd
 from housefire.scraper.scraper import Scraper
 
-logger = get_logger(__name__)
-
 
 class WellScraper(Scraper):
-    def __init__(self, driver: uc.Browser):
-        super().__init__(driver)
-        self.ticker = "well"
+    def __init__(self):
+        super().__init__()
 
     async def execute_scrape(self) -> pd.DataFrame:
         start_url = "https://medicaloffice.welltower.com/search?address=USA&min=null&max=null&moveInTiming="
@@ -17,7 +13,7 @@ class WellScraper(Scraper):
 
         df_list = list()
         property_urls = await self._welltower_scrape_property_urls(tab)
-        logger.debug(f"found property urls: {property_urls}")
+        self.logger.debug(f"found property urls: {property_urls}")
 
         for property_url in property_urls:
             self._jiggle()
@@ -26,7 +22,7 @@ class WellScraper(Scraper):
                 df = await self._welltower_scrape_single_property(property_tab)
                 df_list.append(df)
             except Exception as e:
-                logger.warning(f"error scraping property: {property_url}, {e}")
+                self.logger.warning(f"error scraping property: {property_url}, {e}")
             finally:
                 await property_tab.close()
 
@@ -64,14 +60,14 @@ class WellScraper(Scraper):
         tab = await self.driver.get(
             "https://medicaloffice.welltower.com/search?address=USA&min=null&max=null&moveInTiming="
         )
-        logger.debug("SCRAPED PROPERTY URLS")
-        logger.debug(await self._welltower_scrape_property_urls(tab))
-        logger.debug("\n\n\n")
+        self.logger.debug("SCRAPED PROPERTY URLS")
+        self.logger.debug(await self._welltower_scrape_property_urls(tab))
+        self.logger.debug("\n\n\n")
 
         # WELL welltower scrape single property
         tab = await self.driver.get(
             "https://medicaloffice.welltower.com/450-south-kitsap-boulevard"
         )
-        logger.debug("SCRAPED SINGLE PROPERTY")
-        logger.debug(await self._welltower_scrape_single_property(tab))
-        logger.debug("\n\n\n")
+        self.logger.debug("SCRAPED SINGLE PROPERTY")
+        self.logger.debug(await self._welltower_scrape_single_property(tab))
+        self.logger.debug("\n\n\n")

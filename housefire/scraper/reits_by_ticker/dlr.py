@@ -1,15 +1,11 @@
-from housefire.logger import get_logger
 import nodriver as uc
 import pandas as pd
 from housefire.scraper.scraper import Scraper
 
-logger = get_logger(__name__)
-
 
 class DlrScraper(Scraper):
-    def __init__(self, driver: uc.Browser):
-        super().__init__(driver)
-        self.ticker = "dlr"
+    def __init__(self):
+        super().__init__()
 
     async def execute_scrape(self) -> pd.DataFrame:
         start_url = "https://www.digitalrealty.com/data-centers"
@@ -17,7 +13,7 @@ class DlrScraper(Scraper):
 
         df_list = list()
         property_urls = await self._digital_realty_scrape_region_urls(tab)
-        logger.debug(f"found property urls: {property_urls}")
+        self.logger.debug(f"found property urls: {property_urls}")
 
         for property_url in property_urls:
             self._jiggle()
@@ -26,7 +22,7 @@ class DlrScraper(Scraper):
                 df = await self._digital_realty_scrape_single_region(property_tab)
                 df_list.append(df)
             except Exception as e:
-                logger.warning(f"error scraping property: {property_url}, {e}")
+                self.logger.warning(f"error scraping property: {property_url}, {e}")
             finally:
                 await property_tab.close()
 
@@ -62,9 +58,9 @@ class DlrScraper(Scraper):
 
     async def _debug_scrape(self):
         start_url = "https://www.digitalrealty.com/data-centers/americas/chicago"
-        logger.debug(f"debug scraping for {self.ticker} at {start_url}")
+        self.logger.debug(f"debug scraping for {self.ticker} at {start_url}")
         tab = await self.driver.get(start_url)
         df = await self._digital_realty_scrape_single_region(tab)
-        logger.debug(f"SCRAPED SINGLE REGION DF")
-        logger.debug(df)
-        logger.debug("\n\n\n")
+        self.logger.debug(f"SCRAPED SINGLE REGION DF")
+        self.logger.debug(df)
+        self.logger.debug("\n\n\n")

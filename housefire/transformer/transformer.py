@@ -1,14 +1,17 @@
 from abc import ABC, abstractmethod
+from logging import Logger
 import pandas as pd
 import numpy as np
-from housefire.logger import get_logger
-
-logger = get_logger(__name__)
 
 
 class Transformer(ABC):
+
+    # injected by factory
+    logger: Logger
+    ticker: str
+
     def __init__(self):
-        self.ticker = str()
+        pass
 
     @abstractmethod
     def execute_transform(self, data: pd.DataFrame) -> pd.DataFrame:
@@ -26,7 +29,7 @@ class Transformer(ABC):
         """
         transform data and log
         """
-        logger.debug(f"Transforming data for REIT: {self.ticker}, df: {data}")
+        self.logger.debug(f"Transforming data for REIT: {self.ticker}, df: {data}")
         transformed_data = self.execute_transform(data)
         transformed_data.fillna(np.nan, inplace=True)
         transformed_data.replace([np.nan], [None], inplace=True)
@@ -34,11 +37,11 @@ class Transformer(ABC):
             reitTicker=self.ticker.upper()
         )
         duplicates = transformed_data_with_ticker.duplicated(subset="addressInput")
-        logger.debug(f"Dropping duplicates: {duplicates}")
+        self.logger.debug(f"Dropping duplicates: {duplicates}")
         transformed_data_with_ticker.drop_duplicates(
             inplace=True, subset="addressInput"
         )
-        logger.debug(
+        self.logger.debug(
             f"Transformed data for REIT: {self.ticker}, df: {transformed_data_with_ticker}"
         )
         return transformed_data_with_ticker
@@ -62,11 +65,7 @@ class Transformer(ABC):
         if len(area_parts) > 2:
             raise ValueError(f"Unsupported area range: {area}")
         if len(area_parts) == 1:
-            logger.debug(f"Found 1 area part: {area_parts[0]}")
             return cls.parse_area_string(area_parts[0])
-        logger.debug(
-            f"Found 2 area parts: {area_parts[0]} and {area_parts[1]}, averaging"
-        )
         return (
             cls.parse_area_string(area_parts[0]) + cls.parse_area_string(area_parts[1])
         ) / 2

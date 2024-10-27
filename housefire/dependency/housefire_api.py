@@ -1,10 +1,7 @@
+from logging import Logger
 import requests as r
 import time
-import housefire.config as config
-from housefire.logger import get_logger
 from housefire.dependency.dependency import Dependency
-
-logger = get_logger(__name__)
 
 
 class HousefireAPI(Dependency):
@@ -15,41 +12,42 @@ class HousefireAPI(Dependency):
         api_key (str): Housefire API key
     """
 
-    def __init__(self, base_url: str = config.HOUSEFIRE_DEFAULT_BASE_URL):
-        self.base_url = base_url
+    def __init__(self, logger: Logger, housefire_api_key: str, housefire_base_url: str):
+        self.base_url = housefire_base_url
         self.headers = {
-            "x-api-key": config.HOUSEFIRE_API_KEY,
+            "x-api-key": housefire_api_key,
             "Content-Type": "application/json",
         }
-        logger.debug("Housefire API client initialized")
+        self.logger = logger
+        self.logger.debug("Housefire API client initialized")
 
     def _construct_url(self, endpoint: str):
         full_url = self.base_url + endpoint
         if endpoint.startswith("/") and len(endpoint) > 1:
             full_url = self.base_url + endpoint[1:]
-        logger.debug(f"Constructed URL: {full_url}")
+        self.logger.debug(f"Constructed URL: {full_url}")
         return full_url
 
     def _get(self, endpoint, params=None) -> r.Response:
-        logger.debug(f"GET request to {endpoint} with params: {params}")
+        self.logger.debug(f"GET request to {endpoint} with params: {params}")
         response = r.get(
             self._construct_url(endpoint), headers=self.headers, params=params
         )
-        logger.debug(f"GET request to {endpoint} returned: {response}")
+        self.logger.debug(f"GET request to {endpoint} returned: {response}")
         return response
 
     def _post(self, endpoint, data=None) -> r.Response:
-        logger.debug(f"POST request to {endpoint} with data: {data}")
+        self.logger.debug(f"POST request to {endpoint} with data: {data}")
         response = r.post(
             self._construct_url(endpoint), headers=self.headers, json=data
         )
-        logger.debug(f"POST request to {endpoint} returned: {response}")
+        self.logger.debug(f"POST request to {endpoint} returned: {response}")
         return response
 
     def _delete(self, endpoint) -> r.Response:
-        logger.debug(f"DELETE request to {endpoint}")
+        self.logger.debug(f"DELETE request to {endpoint}")
         response = r.delete(self._construct_url(endpoint), headers=self.headers)
-        logger.debug(f"DELETE request to {endpoint} returned: {response}")
+        self.logger.debug(f"DELETE request to {endpoint} returned: {response}")
         return response
 
     def get_properties_by_ticker(self, ticker: str) -> list[dict]:
@@ -59,13 +57,13 @@ class HousefireAPI(Dependency):
         """
         r = self._get(f"/properties/byTicker/{ticker}")
         if r.status_code == 404:
-            logger.debug(f"no properties found for ticker {ticker}")
+            self.logger.debug(f"no properties found for ticker {ticker}")
             return list()
         elif self._is_error_response(r):
             raise Exception(
                 f"unexpected error getting properties for ticker {ticker}: {r}"
             )
-        logger.debug(f"properties found for ticker {ticker}: {r.json()}")
+        self.logger.debug(f"properties found for ticker {ticker}: {r.json()}")
         return list(r.json())
 
     def delete_properties_by_ticker(self, ticker: str) -> int:
@@ -134,13 +132,13 @@ class HousefireAPI(Dependency):
         """
         r = self._get(f"/geocodes/byAddressInput/{address_input}")
         if r.status_code == 404:
-            logger.debug(f"no geocode found for address input {address_input}")
+            self.logger.debug(f"no geocode found for address input {address_input}")
             return None
         elif self._is_error_response(r):
             raise Exception(
                 f"unexpected error getting geocode for address input {address_input}: {r}"
             )
-        logger.debug(f"geocode found for address input {address_input}: {r.json()}")
+        self.logger.debug(f"geocode found for address input {address_input}: {r.json()}")
         return r.json()
 
     def post_geocode(self, data: dict) -> dict:

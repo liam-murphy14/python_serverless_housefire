@@ -2,9 +2,6 @@ from housefire.scraper.scraper import Scraper
 import pandas as pd
 import nodriver as uc
 import os
-from housefire.logger import get_logger
-
-logger = get_logger(__name__)
 
 
 class PldScraper(Scraper):
@@ -12,9 +9,8 @@ class PldScraper(Scraper):
     scraper for Prologis, scrapes CSV from website
     """
 
-    def __init__(self, driver):
-        super().__init__(driver)
-        self.ticker = "pld"
+    def __init__(self):
+        super().__init__()
 
     async def execute_scrape(self) -> pd.DataFrame:
         # find and click the hidden button to download the csv
@@ -46,17 +42,17 @@ class PldScraper(Scraper):
         if len(file_list) == 0:
             raise Exception("could not find downloaded csv")
 
-        logger.debug(
+        self.logger.debug(
             f"downloaded pld csv, self.temp_dir_path: {self.temp_dir_path}, files: {file_list}"
         )
 
         # get the downloaded file, hacky but works
         filepath = os.path.join(self.temp_dir_path, file_list[0])
-        logger.debug(f"reading csv file: {filepath}")
+        self.logger.debug(f"reading csv file: {filepath}")
         df = pd.read_csv(filepath)
-        logger.debug("deleting csv")
+        self.logger.debug("deleting csv")
         os.remove(filepath)
         return df
 
     async def _debug_scrape(self):
-        logger.debug("debug scrape")
+        self.logger.debug("debug scrape")

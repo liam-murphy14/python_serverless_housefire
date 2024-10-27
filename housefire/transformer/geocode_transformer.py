@@ -1,10 +1,7 @@
 import pandas as pd
 from housefire.dependency.google_maps import GoogleGeocodeAPI
 from housefire.dependency.housefire_api import HousefireAPI
-from housefire.logger import get_logger
 from housefire.transformer.transformer import Transformer
-
-logger = get_logger(__name__)
 
 
 class GeocodeTransformer(Transformer):
@@ -12,9 +9,13 @@ class GeocodeTransformer(Transformer):
     Transformer that geocodes addresses during the transformation process.
     """
 
+    # instantiated by factory
+    google_geocode_api_client: GoogleGeocodeAPI
+
+
     def __init__(self):
         super().__init__()
-        self.google_geocode_api_client = GoogleGeocodeAPI(HousefireAPI())
+
 
     def _geocode_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -31,7 +32,7 @@ class GeocodeTransformer(Transformer):
         for address_input, record in zip(address_inputs, records):
             record["addressInput"] = address_input
             if address_input not in housefire_geocodes:
-                logger.error(f"Failed to geocode address: {address_input}")
+                self.logger.error(f"Failed to geocode address: {address_input}")
                 continue
             housefire_geocode = housefire_geocodes[address_input]
             record.update(

@@ -3,9 +3,12 @@ import nodriver as uc
 import os
 import configparser
 
+from housefire.dependency.google_maps import GoogleGeocodeAPI
 from housefire.dependency.housefire_api import HousefireAPI
+from housefire.logger import HousefireLoggerFactory
 from housefire.scraper.scraper_factory import ScraperFactory
 from housefire.transformer.transformer_factory import TransformerFactory
+from housefire.config import HousefireConfig
 
 
 def main():
@@ -38,6 +41,18 @@ def housefire(ctx, config_path: str):
             f"Looks like there is no config file at {config_path}. Run 'housefire init' to get started."
         )
         return
+    # TODO: make sure this won't write an empty file
+    with open(config_path, "r") as configfile:
+        config_object = configparser.ConfigParser()
+        config_object.read(configfile)
+        try:
+            ctx.obj["CONFIG"] = HousefireConfig(config_object)
+        except ValueError:
+            click.echo(
+            f"Looks like your config file at {config_path} is not initialized. Run 'housefire init' to get started."
+)
+            return
+        
 
 
 @housefire.command()
@@ -57,6 +72,7 @@ def housefire(ctx, config_path: str):
 @click.option("--housefire-api-key", help="Housefire API key.", type=str)
 @click.option("--google-maps-api-key", help="Google Maps API key.", type=str)
 @click.option("--housefire-base-url", help="Housefire API base URL.", type=str)
+@click.option("--deploy-env", help="Housefire API base URL.", type=str)
 @click.pass_context
 def init(
     ctx,
@@ -64,6 +80,7 @@ def init(
     housefire_api_key: str,
     google_maps_api_key: str,
     housefire_base_url: str,
+    deploy_env: str,
 ):
     """
     Initialize the housefire CLI, creating a config file if it does not already exist.
@@ -82,6 +99,7 @@ def init(
         # set defaults
         temp_dir_path_default = f"{os.getenv('HOME')}/Downloads/"
         housefire_base_url_default = "https://housefire.liammurphydev.com/api/"
+        deploy_env_default = "development"
 
         if temp_dir_path is None or len(temp_dir_path) == 0:
             temp_dir_prompt_value = (
@@ -143,28 +161,44 @@ def init(
             )
         config_object["HOUSEFIRE"]["HOUSEFIRE_BASE_URL"] = housefire_base_url
 
+        if deploy_env is None or len(deploy_env) == 0:
+            deploy_env_prompt_value = (
+                config_object["HOUSEFIRE"].get("DEPLOY_ENV")
+                if "DEPLOY_ENV" in config_object["HOUSEFIRE"]
+                else deploy_env_default
+            )
+            deploy_env = click.prompt(
+                f"Enter the deploy environment. Press enter to accept current value=[{deploy_env_prompt_value}].",
+                default=deploy_env_prompt_value,
+                type=str,
+            )
+
         config_object.write(configfile)
 
 
 @housefire.command()
 @click.argument("ticker", required=True)
-def run_data_pipeline(ticker: str):
+@click.pass_context
+def run_data_pipeline(ctx, ticker: str):
     """
     Run the full data pipeline for scraping the TICKER website and uploading to housefire.
     """
-    uc.loop().run_until_complete(run_data_pipeline_main(ticker))
+    config = ctx.obj["CONFIG"]
+    uc.loop().run_until_complete(run_data_pipeline_main(config, ticker))
 
 
-async def run_data_pipeline_main(ticker: str):
-    scraper_factory = ScraperFactory()
+async def run_data_pipeline_main(config: HousefireConfig, ticker: str):
+    logger_factory = HousefireLoggerFactory(config.deploy_env)
+    scraper_factory = ScraperFactory(logger_factory, config.chrome_path, config.temp_dir_path)
     scraper = await scraper_factory.get_scraper(ticker)
     scraped_data = await scraper.scrape()
 
-    transformer_factory = TransformerFactory()
+    housefire_api = HousefireAPI(logger_factory.get_logger(HousefireAPI.__name__), config.housefire_api_key, config.housefire_base_url)
+    geocode_api = GoogleGeocodeAPI(logger_factory.get_logger(GoogleGeocodeAPI.__name__), housefire_api, config.google_maps_api_key)
+
+    transformer_factory = TransformerFactory(logger_factory, geocode_api)
     transformer = transformer_factory.get_transformer(ticker)
     transformed_data = transformer.transform(scraped_data)
-
-    housefire_api = HousefireAPI()
 
     housefire_api.update_properties_by_ticker(
         ticker.upper(), HousefireAPI.df_to_request(transformed_data)
@@ -179,15 +213,18 @@ async def run_data_pipeline_main(ticker: str):
     is_flag=True,
     help="Run the scraper debugger function instead of the full scraper.",
 )
-def scrape(ticker: str, debug: bool):
+@click.pass_context
+def scrape(ctx, ticker: str, debug: bool):
     """
     Scrapes the TICKER website for property data.
     """
-    uc.loop().run_until_complete(scrape_main(ticker, debug))
+    config = ctx.obj["CONFIG"]
+    uc.loop().run_until_complete(scrape_main(config, ticker, debug))
 
 
-async def scrape_main(ticker: str, debug: bool):
-    scraper_factory = ScraperFactory()
+async def scrape_main(config: HousefireConfig, ticker: str, debug: bool):
+    logger_factory = HousefireLoggerFactory(config.deploy_env)
+    scraper_factory = ScraperFactory(logger_factory, config.chrome_path, config.temp_dir_path)
     scraper = await scraper_factory.get_scraper(ticker)
     if debug:
         await scraper._debug_scrape()
@@ -217,3 +254,5 @@ async def scrape_main(ticker: str, debug: bool):
 #         click.echo("This feature is not yet implemented. To test transforming on its own, use the --debug flag.")
 
 # TODO: write an uploader as well
+
+

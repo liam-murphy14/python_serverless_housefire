@@ -1,3 +1,4 @@
+from housefire.logger import HousefireLoggerFactory
 from housefire.scraper.scraper import Scraper
 from housefire.scraper.reits_by_ticker.pld import PldScraper
 from housefire.scraper.reits_by_ticker.spg import SpgScraper
@@ -5,7 +6,6 @@ from housefire.scraper.reits_by_ticker.dlr import DlrScraper
 from housefire.scraper.reits_by_ticker.well import WellScraper
 from housefire.scraper.reits_by_ticker.eqix import EqixScraper
 import nodriver as uc
-import housefire.config as config
 
 
 class ScraperFactory:
@@ -13,7 +13,10 @@ class ScraperFactory:
     Factory class for creating Scraper instances
     """
 
-    def __init__(self):
+    def __init__(self, logger_factory: HousefireLoggerFactory, chrome_path: str, temp_dir_path: str):
+        self.logger_factory = logger_factory
+        self.chrome_path = chrome_path
+        self.temp_dir_path = temp_dir_path
         self.scraper_map = {
             "pld": PldScraper,
             "spg": SpgScraper,
@@ -29,8 +32,13 @@ class ScraperFactory:
         if ticker not in self.scraper_map:
             raise ValueError(f"Unsupported ticker: {ticker}")
 
-        driver = await self._init_driver_instance()
-        return self.scraper_map[ticker](driver)
+        scraper = self.scraper_map[ticker]()
+        scraper.driver = await self._init_driver_instance()
+        scraper.temp_dir_path = self.temp_dir_path
+        scraper.ticker = ticker
+        scraper.logger = self.logger_factory.get_logger(scraper.__class__.__name__)
+
+        return scraper
 
     async def _init_driver_instance(self) -> uc.Browser:
         """
@@ -38,5 +46,5 @@ class ScraperFactory:
         """
         return await uc.start(
             headless=False,
-            browser_executable_path=config.CHROME_PATH,
+            browser_executable_path=self.chrome_path,
         )

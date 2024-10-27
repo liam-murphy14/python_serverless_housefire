@@ -5,7 +5,6 @@ from housefire.transformer.transformer import Transformer
 class PldTransformer(Transformer):
     def __init__(self):
         super().__init__()
-        self.ticker = "pld"
         self.unnecessary_columns = [
             "Available Date",
             "Market Property Type",

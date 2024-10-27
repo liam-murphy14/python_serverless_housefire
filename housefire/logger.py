@@ -3,42 +3,50 @@ import logging.handlers
 import sys
 import os.path
 
-_base_housefire_logger = logging.getLogger("housefire")
-_base_housefire_format = logging.Formatter(
-    "%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-    datefmt="%Y-%m-%dT%H:%M:%SZ",
-)
+class HousefireLoggerFactory:
+    def __init__(self, deploy_env: str):
+        base_housefire_logger = logging.getLogger("housefire")
+        base_housefire_logger.setLevel(logging.DEBUG)
 
-if not os.path.exists("/tmp/housefire_logs") or not os.path.isdir(
-    "/tmp/housefire_logs"
-):
-    os.mkdir("/tmp/housefire_logs")
+        base_housefire_format = logging.Formatter(
+            "%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+            datefmt="%Y-%m-%dT%H:%M:%SZ",
+        )
 
-_base_housefire_handler = logging.handlers.RotatingFileHandler(
-    os.path.join("/tmp/housefire_logs", "housefire.log"),
-    backupCount=5,
-    maxBytes=5000000,
-)
+        if not os.path.exists("/tmp/housefire_logs") or not os.path.isdir(
+            "/tmp/housefire_logs"
+        ):
+            os.mkdir("/tmp/housefire_logs")
+        base_housefire_handler = logging.handlers.RotatingFileHandler(
+            os.path.join("/tmp/housefire_logs", "housefire.log"),
+            backupCount=5,
+            maxBytes=5000000,
+        )
 
-_base_housefire_handler.setFormatter(_base_housefire_format)
-_base_housefire_logger.addHandler(_base_housefire_handler)
-_base_housefire_logger.setLevel(logging.DEBUG)
+        base_housefire_handler.setFormatter(base_housefire_format)
+        base_housefire_logger.addHandler(base_housefire_handler)
+
+        if deploy_env == "development":
+            base_housefire_console_handler = logging.StreamHandler()
+            base_housefire_console_handler.setFormatter(base_housefire_format)
+            base_housefire_logger.addHandler(base_housefire_console_handler)
+
+        # catch all uncaught exceptions for logging
+        def handle_exception(exc_type, exc_value, exc_traceback):
+            if issubclass(exc_type, KeyboardInterrupt):
+                sys.__excepthook__(exc_type, exc_value, exc_traceback)
+                return
+
+            base_housefire_logger.critical(
+                "Uncaught exception",
+                exc_info=(exc_type, exc_value, exc_traceback),
+            )
 
 
-# catch all uncaught exceptions for logging
-def handle_exception(exc_type, exc_value, exc_traceback):
-    if issubclass(exc_type, KeyboardInterrupt):
-        sys.__excepthook__(exc_type, exc_value, exc_traceback)
-        return
+        sys.excepthook = handle_exception
 
-    _base_housefire_logger.critical(
-        "Uncaught exception",
-        exc_info=(exc_type, exc_value, exc_traceback),
-    )
+        self._base_housefire_logger = base_housefire_logger
 
 
-sys.excepthook = handle_exception
-
-
-def get_logger(name: str) -> logging.Logger:
-    return _base_housefire_logger.getChild(name)
+    def get_logger(self, name: str) -> logging.Logger:
+        return self._base_housefire_logger.getChild(name)
