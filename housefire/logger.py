@@ -3,6 +3,7 @@ import logging.handlers
 import sys
 import os.path
 
+
 class HousefireLoggerFactory:
     def __init__(self, deploy_env: str):
         base_housefire_logger = logging.getLogger("housefire")
@@ -42,11 +43,9 @@ class HousefireLoggerFactory:
                 exc_info=(exc_type, exc_value, exc_traceback),
             )
 
-
         sys.excepthook = handle_exception
 
         self._base_housefire_logger = base_housefire_logger
-
 
     def get_logger(self, name: str) -> logging.Logger:
         return self._base_housefire_logger.getChild(name)

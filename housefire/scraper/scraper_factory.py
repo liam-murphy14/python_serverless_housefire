@@ -13,7 +13,12 @@ class ScraperFactory:
     Factory class for creating Scraper instances
     """
 
-    def __init__(self, logger_factory: HousefireLoggerFactory, chrome_path: str, temp_dir_path: str):
+    def __init__(
+        self,
+        logger_factory: HousefireLoggerFactory,
+        chrome_path: str,
+        temp_dir_path: str,
+    ):
         self.logger_factory = logger_factory
         self.chrome_path = chrome_path
         self.temp_dir_path = temp_dir_path

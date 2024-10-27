@@ -12,10 +12,8 @@ class GeocodeTransformer(Transformer):
     # instantiated by factory
     google_geocode_api_client: GoogleGeocodeAPI
 
-
     def __init__(self):
         super().__init__()
-
 
     def _geocode_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """

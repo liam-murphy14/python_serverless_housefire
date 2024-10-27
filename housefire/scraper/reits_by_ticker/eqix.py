@@ -101,7 +101,9 @@ class EqixScraper(Scraper):
             address_line_2_div = address_div.children[2]
             self.logger.debug(f"address_line_2_div: {address_line_2_div}")
         elif len(address_div.children) == 2:
-            self.logger.debug("address_div has 2 children, assuming only address line 2")
+            self.logger.debug(
+                "address_div has 2 children, assuming only address line 2"
+            )
             address_line_2_div = address_div.children[1]
             self.logger.debug(f"address_line_2_div: {address_line_2_div}")
         else:

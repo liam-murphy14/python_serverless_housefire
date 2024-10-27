@@ -138,7 +138,9 @@ class HousefireAPI(Dependency):
             raise Exception(
                 f"unexpected error getting geocode for address input {address_input}: {r}"
             )
-        self.logger.debug(f"geocode found for address input {address_input}: {r.json()}")
+        self.logger.debug(
+            f"geocode found for address input {address_input}: {r.json()}"
+        )
         return r.json()
 
     def post_geocode(self, data: dict) -> dict:

@@ -49,10 +49,9 @@ def housefire(ctx, config_path: str):
             ctx.obj["CONFIG"] = HousefireConfig(config_object)
         except ValueError:
             click.echo(
-            f"Looks like your config file at {config_path} is not initialized. Run 'housefire init' to get started."
-)
+                f"Looks like your config file at {config_path} is not initialized. Run 'housefire init' to get started."
+            )
             return
-        
 
 
 @housefire.command()
@@ -189,12 +188,22 @@ def run_data_pipeline(ctx, ticker: str):
 
 async def run_data_pipeline_main(config: HousefireConfig, ticker: str):
     logger_factory = HousefireLoggerFactory(config.deploy_env)
-    scraper_factory = ScraperFactory(logger_factory, config.chrome_path, config.temp_dir_path)
+    scraper_factory = ScraperFactory(
+        logger_factory, config.chrome_path, config.temp_dir_path
+    )
     scraper = await scraper_factory.get_scraper(ticker)
     scraped_data = await scraper.scrape()
 
-    housefire_api = HousefireAPI(logger_factory.get_logger(HousefireAPI.__name__), config.housefire_api_key, config.housefire_base_url)
-    geocode_api = GoogleGeocodeAPI(logger_factory.get_logger(GoogleGeocodeAPI.__name__), housefire_api, config.google_maps_api_key)
+    housefire_api = HousefireAPI(
+        logger_factory.get_logger(HousefireAPI.__name__),
+        config.housefire_api_key,
+        config.housefire_base_url,
+    )
+    geocode_api = GoogleGeocodeAPI(
+        logger_factory.get_logger(GoogleGeocodeAPI.__name__),
+        housefire_api,
+        config.google_maps_api_key,
+    )
 
     transformer_factory = TransformerFactory(logger_factory, geocode_api)
     transformer = transformer_factory.get_transformer(ticker)
@@ -224,7 +233,9 @@ def scrape(ctx, ticker: str, debug: bool):
 
 async def scrape_main(config: HousefireConfig, ticker: str, debug: bool):
     logger_factory = HousefireLoggerFactory(config.deploy_env)
-    scraper_factory = ScraperFactory(logger_factory, config.chrome_path, config.temp_dir_path)
+    scraper_factory = ScraperFactory(
+        logger_factory, config.chrome_path, config.temp_dir_path
+    )
     scraper = await scraper_factory.get_scraper(ticker)
     if debug:
         await scraper._debug_scrape()
@@ -254,5 +265,3 @@ async def scrape_main(config: HousefireConfig, ticker: str, debug: bool):
 #         click.echo("This feature is not yet implemented. To test transforming on its own, use the --debug flag.")
 
 # TODO: write an uploader as well
-
-

@@ -58,9 +58,6 @@ class Scraper(ABC):
         return seconds
 
 
-
-
-
 # # extra stuff i dont know what to do with yet. TODO: figure out a better place for this
 # # NOT CURRENTLY USED, BUT MAY BE USEFUL IN THE FUTURE
 # # TODO: instead of edge config nonsese, just add these objects to the REIT table in db

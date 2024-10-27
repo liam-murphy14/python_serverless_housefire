@@ -7,7 +7,12 @@ import time
 
 class GoogleGeocodeAPI(Dependency):
 
-    def __init__(self, logger: Logger, housefire_api_client: HousefireAPI, google_maps_api_key: str):
+    def __init__(
+        self,
+        logger: Logger,
+        housefire_api_client: HousefireAPI,
+        google_maps_api_key: str,
+    ):
         self.client = googlemaps.Client(key=google_maps_api_key)
         self.housefire_api_client = housefire_api_client
         self.wait_time = 72  # wait 72 seconds between geocoding requests to limit to 1200 requests per day
