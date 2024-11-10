@@ -47,7 +47,7 @@ Next, we will install the GitHub command line tool, run the following command in
 nix profile install nixpkgs#gh
 ```
 
-Once this is installed, run `gh auth` and sign into your GitHub account. Then run `gh auth setup-git` to set up your git credentials.
+Once this is installed, run `gh auth login` and sign into your GitHub account. Then run `gh auth setup-git` to set up your git credentials.
 
 Next, find your repository on GitHub (you can go to your account, then your repositories, then the Housefire one). Click the green "Code" button, click the "GitHub CLI" option, and copy the command that appears. Paste this command in your terminal and press Enter to run it.
 
@@ -119,4 +119,10 @@ You can press enter to use the default arguments most options. However, for the 
 
 ## 4. Add a new scraper
 
-TODO
+Now, we will go through the steps to add a new scraper to the project.
+
+### 4.1 Open the project in VSCode
+
+Open VSCode and click the "Open Folder" button. Navigate to the `python_serverless_housefire` directory and click "Open". You should see the project files on the left side of the window.
+
+Now, open the `cli.py` file. At the top of the file, check if the import statements have any errors or warnings associated with them. If they do, click the tab in the bottom right corner of VSCode that says `Python 3.9.12` or something similar. Click the `Select Interpreter` option, then select the option with a long string of random characters in front of it. This should fix the errors.
