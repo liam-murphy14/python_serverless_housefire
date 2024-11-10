@@ -44,7 +44,6 @@ def housefire(ctx, config_path: str):
             f"Looks like there is no config file at {config_path}. Run 'housefire init' to get started."
         )
         raise SystemExit(0)
-    # TODO: make sure this won't write an empty file
     config_object = configparser.ConfigParser()
     config_object.read(config_path)
     try:
@@ -93,13 +92,9 @@ def init(
 
     config_object = configparser.ConfigParser()
     config_object.read(config_path)
-    print(config_object)
     if "HOUSEFIRE" not in config_object:
         config_object["HOUSEFIRE"] = {}
 
-    print(config_object["HOUSEFIRE"])
-    print(config_object["HOUSEFIRE"].get("TEMP_DIR_PATH"))
-    print(config_object["HOUSEFIRE"].get("HOUSEFIRE_API_KEY"))
     # set defaults
     temp_dir_path_default = f"{os.getenv('HOME')}/Downloads/"
     housefire_base_url_default = "https://housefire.liammurphydev.com/api/"
