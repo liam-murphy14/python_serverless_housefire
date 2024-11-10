@@ -126,3 +126,81 @@ Now, we will go through the steps to add a new scraper to the project.
 Open VSCode and click the "Open Folder" button. Navigate to the `python_serverless_housefire` directory and click "Open". You should see the project files on the left side of the window.
 
 Now, open the `cli.py` file. At the top of the file, check if the import statements have any errors or warnings associated with them. If they do, click the tab in the bottom right corner of VSCode that says `Python 3.9.12` or something similar. Click the `Select Interpreter` option, then select the option with a long string of random characters in front of it. This should fix the errors.
+
+### 4.2 A note on project structure
+
+This project is designed as a CLI with 3 steps. You can think of it as a pipeline (and the combo command is aptly named `run-data-pipeline`). First is the `scrape` step, which scrapes data from a website. Second is the `transform` step, which transforms the data into a format that can be used by the Housefire platform. Third is the `upload` step, which loads the data into the Housefire web platform.
+
+For the purposes of this guide, we will be focusing on the `scrape` step primarily, and the `transform` step secondarily.
+
+You can find the existing scrapers in the `scraper` directory. Each scraper is a Python class that inherits from the `Scraper` class in `scraper.py`, and is instantiated by the `ScraperFactory` class in `scraper_factory.py`. Each scraper has to implement the `execute_scrape` method, as well as the `debug_scrape` method. The `execute_scrape` method is the main method that is called when the scraper is run, and the `debug_scrape` method is used for debugging/testing purposes.
+
+Each actual scraper is organized by the REIT ticket name in the `reits_by_ticker` directory, and is named `[Ticker]Scraper`. See the `pld.py` scraper for an example.
+
+### 4.3 Add a new scraper
+
+First, choose a REIT to scrape data for. You can find a list of largest REITs by market cap [here](https://companiesmarketcap.com/reit/largest-reits-by-market-cap/).
+
+Once you have chosen a ticker, add a new file named `<ticker>.py` to the `reits_by_ticker` directory. Add the following content to the file.
+
+```python
+import nodriver as uc
+import pandas as pd
+from housefire.scraper.scraper import Scraper
+
+
+class <Ticker>Scraper(Scraper):
+    def __init__(self):
+        super().__init__()
+
+    async def execute_scrape(self) -> pd.DataFrame:
+        start_url = "EXAMPLEURL"
+        tab = await self.driver.get(start_url)
+        return pd.DataFrame()
+
+    async def _debug_scrape(self):
+        self.logger.debug("Debugging the <ticker> scraper")
+```
+
+Replacing `<Ticker>` and `<ticker>` with the ticker (following the capitalization) of the REIT you have chosen. Replace `EXAMPLEURL` with the URL of the website you will be scraping data from. Typically this will be the REIT website.
+
+Using the `uc` library, you can interact with the website to scrape data. The `self.driver` object is an instance of the `uc` library that you can use to interact with the website. You can find the documentation for the `uc` library [here](https://ultrafunkamsterdam.github.io/nodriver/). You can also look at the existing scrapers for examples of how to use the `uc` library.
+
+Basically, you will add code to the `execute_scrape` method that will scrape data from the website and return it as a Pandas DataFrame (like a spreadsheet for Python).
+
+### 4.4 Add the scraper to the factory
+
+Next, open the `scraper_factory.py` file. Add an import statement for your new scraper at the top of the file, like so:
+
+```python
+from housefire.scraper.reits_by_ticker.<ticker> import <Ticker>Scraper
+```
+
+Next, add your new scraper to the `self.scraper_map` dictionary in the `ScraperFactory` class, similar to the existing scrapers.
+
+### 4.5 An aside: what data we want to collect
+
+In order to write your scraper effectively, we need to know what kind of data we want. For the first iteration of the project, we want property data for each REIT. This includes the property name, address, and square footage of each property that the REIT owns (see our [Housefire data model](https://github.com/liam-murphy14/svelte_app_housefire/blob/1f293334350ab04eb35b21433f813fa71f85e7d1/prisma/schema.prisma#L23) for details).
+
+First, see what the website has available. Many REIT websites have a webpage where you can view all properties that they own. If you cannot get every piece of data we need from this website, don't worry, we can also get additional data during the transform step. For the scraper, just focus on getting the name, plus enough information so that we can look up the property on Google Maps and identify it.
+
+### 4.6 Test your scraper
+
+Now, you can test your scraper by running the following command in your terminal:
+
+```bash
+nix run . -- scrape --debug <ticker>
+```
+
+This will run the `debug_scrape` method of your scraper, which is useful for testing and debugging. You can also run the `execute_scrape` method by running the following command:
+
+```bash
+THIS CURRENTLY DOES NOT WORK, WILL FIX
+```
+
+### 4.7 Add a transformer
+
+Once the scraper is returning the right data, we need to add a transformer to let the full data pipeline run. In either case, we need to add a new transformer file for the new REIT, named `<ticker>.py` in the `transform/reits_by_ticker` folder, and adding it to the `transformer_factory.py` file (similar to adding our scraper to the `scraper_factory`). For our purposes, we will do 2 things:
+
+1. If we don't have the full address of the property, we will use the Google Maps API to get the full address. For this, create a geocode transformer by following the example of `eqix.py` in the `transform/reits_by_ticker` folder. This allows us to automatically get the full address of the property.
+2. If we collected the square footage, we will convert it to a number by adding the following line to the `execute_transform` method: `data["squareFootage"] = data["squareFootage"].apply(self.parse_area_string)`.
