@@ -11,7 +11,7 @@ class SpgScraper(Scraper):
         us_start_url = "https://www.simon.com/mall"
         international_start_url = "https://www.simon.com/mall/international"
         us_tab = await self.driver.get(us_start_url, new_tab=True)
-        self._jiggle()
+        await self._jiggle()
         international_tab = await self.driver.get(international_start_url, new_tab=True)
 
         links, names, locations = await self._simon_scrape_property_mall(us_tab)

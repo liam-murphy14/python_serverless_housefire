@@ -1,6 +1,7 @@
 import click
 import nodriver as uc
 import os
+import uuid
 import configparser
 
 from housefire.dependency.google_maps import GoogleGeocodeAPI
@@ -58,7 +59,7 @@ def housefire(ctx, config_path: str):
 @housefire.command()
 @click.option(
     "--temp-dir-path",
-    help="WARNING: must be the default folder that Google Chrome downloads to in order for download-based scrapers to work properly. Path to the temporary directory where scraped data will be stored.",
+    help="Path to the temporary directory where scraped data will be stored.",
     type=click.Path(
         file_okay=False,
         dir_okay=True,
@@ -96,9 +97,13 @@ def init(
         config_object["HOUSEFIRE"] = {}
 
     # set defaults
-    temp_dir_path_default = f"{os.getenv('HOME')}/Downloads/"
+    temp_dir_path_default = "/tmp/housefire_data"
     housefire_base_url_default = "https://housefire.liammurphydev.com/api/"
     deploy_env_default = "development"
+
+    # create temp dir if it doesn't exist
+    if not os.path.exists(temp_dir_path_default):
+        os.makedirs(temp_dir_path_default)
 
     if temp_dir_path is None or len(temp_dir_path) == 0:
         temp_dir_prompt_value = (
@@ -190,10 +195,9 @@ def run_data_pipeline(ctx, ticker: str):
 
 
 async def run_data_pipeline_main(config: HousefireConfig, ticker: str):
+    temp_dir_path = _create_temp_dir(config.temp_dir_path)
     logger_factory = HousefireLoggerFactory(config.deploy_env)
-    scraper_factory = ScraperFactory(
-        logger_factory, config.chrome_path, config.temp_dir_path
-    )
+    scraper_factory = ScraperFactory(logger_factory, config.chrome_path, temp_dir_path)
     scraper = await scraper_factory.get_scraper(ticker)
     scraped_data = await scraper.scrape()
 
@@ -215,6 +219,7 @@ async def run_data_pipeline_main(config: HousefireConfig, ticker: str):
     housefire_api.update_properties_by_ticker(
         ticker.upper(), HousefireAPI.df_to_request(transformed_data)
     )
+    _delete_temp_dir(temp_dir_path)
 
 
 @housefire.command()
@@ -235,10 +240,9 @@ def scrape(ctx, ticker: str, debug: bool):
 
 
 async def scrape_main(config: HousefireConfig, ticker: str, debug: bool):
+    temp_dir_path = _create_temp_dir(config.temp_dir_path)
     logger_factory = HousefireLoggerFactory(config.deploy_env)
-    scraper_factory = ScraperFactory(
-        logger_factory, config.chrome_path, config.temp_dir_path
-    )
+    scraper_factory = ScraperFactory(logger_factory, config.chrome_path, temp_dir_path)
     scraper = await scraper_factory.get_scraper(ticker)
     if debug:
         await scraper._debug_scrape()
@@ -249,6 +253,7 @@ async def scrape_main(config: HousefireConfig, ticker: str, debug: bool):
         # NOT CURRENTLY USED
         # TODO: use this once i have implemented some caching/magic resilience for the scraper
         # return await scraper.scrape()
+    _delete_temp_dir(temp_dir_path)
 
 
 # NOT CURRENTLY USED
@@ -268,3 +273,52 @@ async def scrape_main(config: HousefireConfig, ticker: str, debug: bool):
 #         click.echo("This feature is not yet implemented. To test transforming on its own, use the --debug flag.")
 
 # TODO: write an uploader as well
+
+
+def _create_temp_dir(base_dir_path: str) -> str:
+    """
+    Create a new directory with a random name in the temp directory
+
+    param: base_path: the path to the base directory to create the new directory in
+
+    returns: the full path to the new directory
+    """
+    dir_name = str(uuid.uuid4())
+    new_dir_path = os.path.join(base_dir_path, dir_name)
+    os.mkdir(new_dir_path)
+    return new_dir_path
+
+
+def _delete_temp_dir(temp_dir_path: str) -> None:
+    """
+    Delete a directory and all of its contents
+    USE WITH CAUTION
+
+    param: temp_dir_path: the path to the directory to delete
+    """
+    for filename in os.listdir(temp_dir_path):
+        file_path = os.path.join(temp_dir_path, filename)
+        os.remove(file_path)
+    os.rmdir(temp_dir_path)
+
+
+# # extra stuff i dont know what to do with yet. TODO: figure out a better place for this
+# # NOT CURRENTLY USED, BUT MAY BE USEFUL IN THE FUTURE
+# # TODO: instead of edge config nonsese, just add these objects to the REIT table in db
+# def format_edge_config_ciks():
+#     CIK_ENDPOINT = "https://sec.gov/files/company_tickers.json"
+#     to_concat_list = ["{"]
+#     reit_csv = pd.read_csv("adsf")  # TODO: change
+#     reit_set = set(reit_csv["Symbol"])
+#     cik_res = r.get(CIK_ENDPOINT)
+#     cik_data = cik_res.json()
+#     for key in cik_data:
+#         cik_str, ticker = str(cik_data[key]["cik_str"]), cik_data[key]["ticker"]
+#         if ticker not in reit_set:
+#             continue
+#         cik_str = cik_str.zfill(10)
+#         to_concat_list.append(f'     "{ticker}": "{cik_str}",')
+#     to_concat_list.append("}")
+#     return "\n".join(to_concat_list)
+#
+#

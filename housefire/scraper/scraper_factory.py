@@ -1,3 +1,5 @@
+import os
+import uuid
 from housefire.logger import HousefireLoggerFactory
 from housefire.scraper.scraper import Scraper
 from housefire.scraper.reits_by_ticker.pld import PldScraper
@@ -20,6 +22,7 @@ class ScraperFactory:
         temp_dir_path: str,
     ):
         self.logger_factory = logger_factory
+        self.logger = logger_factory.get_logger(ScraperFactory.__name__)
         self.chrome_path = chrome_path
         self.temp_dir_path = temp_dir_path
         self.scraper_map = {
@@ -49,7 +52,15 @@ class ScraperFactory:
         """
         Get a new instance of the undetected_chromedriver Chrome driver
         """
-        return await uc.start(
+        browser = await uc.start(
             headless=False,
             browser_executable_path=self.chrome_path,
         )
+        # hack because i am not sure how to send CDP command thru browser
+        tab = await browser.get("https://www.google.com")
+        await tab.send(
+            uc.cdp.browser.set_download_behavior(
+                behavior="allowAndName", download_path=self.temp_dir_path
+            )
+        )
+        return browser

@@ -16,7 +16,7 @@ class EqixScraper(Scraper):
         self.logger.debug(f"found city urls: {city_urls}")
         property_urls = list()
         for city_url in city_urls:
-            self._jiggle()
+            await self._jiggle()
             city_tab = await self.driver.get(city_url, new_tab=True)
             try:
                 property_urls.extend(
@@ -29,7 +29,7 @@ class EqixScraper(Scraper):
         self.logger.debug(f"found property urls: {property_urls}")
 
         for property_url in property_urls:
-            self._jiggle()
+            await self._jiggle()
             property_tab = await self.driver.get(property_url, new_tab=True)
             try:
                 df = await self._eqix_scrape_single_property(property_tab)

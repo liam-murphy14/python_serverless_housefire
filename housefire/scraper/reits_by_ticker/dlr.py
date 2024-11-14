@@ -16,7 +16,7 @@ class DlrScraper(Scraper):
         self.logger.debug(f"found property urls: {property_urls}")
 
         for property_url in property_urls:
-            self._jiggle()
+            await self._jiggle()
             property_tab = await self.driver.get(property_url, new_tab=True)
             try:
                 df = await self._digital_realty_scrape_single_region(property_tab)
@@ -34,7 +34,7 @@ class DlrScraper(Scraper):
         return [base_url + element.attrs["href"] for element in link_elements]
 
     async def _digital_realty_scrape_single_region(self, tab: uc.Tab) -> pd.DataFrame:
-        self._wait(30)
+        await self._wait(30)
         property_divs = await tab.query_selector_all(".a-metro-map-link")
         names = [
             (await div.query_selector(".title")).text_all.strip()

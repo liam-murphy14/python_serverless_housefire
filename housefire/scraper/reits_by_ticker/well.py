@@ -16,7 +16,7 @@ class WellScraper(Scraper):
         self.logger.debug(f"found property urls: {property_urls}")
 
         for property_url in property_urls:
-            self._jiggle()
+            await self._jiggle()
             property_tab = await self.driver.get(property_url, new_tab=True)
             try:
                 df = await self._welltower_scrape_single_property(property_tab)
@@ -29,7 +29,7 @@ class WellScraper(Scraper):
         return pd.concat(df_list)
 
     async def _welltower_scrape_property_urls(self, tab: uc.Tab) -> list[str]:
-        self._wait(30)
+        await self._wait(30)
         link_divs = await tab.query_selector_all("a[href]")
         links = [link.attrs["href"] for link in link_divs]
         links_without_https = list(filter(lambda link: link[:4] != "http", set(links)))
