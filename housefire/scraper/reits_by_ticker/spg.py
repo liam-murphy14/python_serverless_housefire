@@ -65,4 +65,14 @@ class SpgScraper(Scraper):
         start_url = "https://www.simon.com/mall"
         self.logger.debug(f"starting debug scrape for {self.ticker} on {start_url}")
         tab = await self.driver.get(start_url)
-        self.logger.debug(await self._simon_scrape_property_mall(tab))
+        links, names, locations = await self._simon_scrape_property_mall(tab)
+
+        geo_addresses = [
+            f"{name}, {location}" for name, location in zip(names, locations)
+        ]
+        return pd.DataFrame(
+            {
+                "name": names,
+                "address": geo_addresses,
+            }
+        )

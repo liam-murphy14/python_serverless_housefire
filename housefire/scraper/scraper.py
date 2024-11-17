@@ -21,7 +21,7 @@ class Scraper(ABC):
         return NotImplemented
 
     @abstractmethod
-    async def _debug_scrape(self) -> None:
+    async def _debug_scrape(self) -> pd.DataFrame:
         """
         debugging method to scrape data at a small scale, can be used for manual testing
         """

@@ -1,8 +1,10 @@
+import pathlib
 import click
 import nodriver as uc
 import os
 import uuid
 import configparser
+import pandas as pd
 
 from housefire.dependency.google_maps import GoogleGeocodeAPI
 from housefire.dependency.housefire_api import HousefireAPI
@@ -185,21 +187,34 @@ def init(
 
 @housefire.command()
 @click.argument("ticker", required=True)
+@click.option(
+    "--delete-temp-dir",
+    default=True,
+    is_flag=True,
+    help="Whether to remove the temporary directory after the data pipeline has run.",
+)
 @click.pass_context
-def run_data_pipeline(ctx, ticker: str):
+def run_data_pipeline(ctx, ticker: str, delete_temp_dir: bool):
     """
     Run the full data pipeline for scraping the TICKER website and uploading to housefire.
     """
     config = ctx.obj["CONFIG"]
-    uc.loop().run_until_complete(run_data_pipeline_main(config, ticker))
+    uc.loop().run_until_complete(
+        run_data_pipeline_main(config, ticker, delete_temp_dir)
+    )
 
 
-async def run_data_pipeline_main(config: HousefireConfig, ticker: str):
+async def run_data_pipeline_main(
+    config: HousefireConfig, ticker: str, delete_temp_dir: bool
+):
     temp_dir_path = _create_temp_dir(config.temp_dir_path)
     logger_factory = HousefireLoggerFactory(config.deploy_env)
     scraper_factory = ScraperFactory(logger_factory, config.chrome_path, temp_dir_path)
     scraper = await scraper_factory.get_scraper(ticker)
     scraped_data = await scraper.scrape()
+
+    path = os.path.join(temp_dir_path, f"{ticker}_scraped.csv")
+    scraped_data.to_csv(path, index=False)
 
     housefire_api = HousefireAPI(
         logger_factory.get_logger(HousefireAPI.__name__),
@@ -216,10 +231,14 @@ async def run_data_pipeline_main(config: HousefireConfig, ticker: str):
     transformer = transformer_factory.get_transformer(ticker)
     transformed_data = transformer.transform(scraped_data)
 
+    path = os.path.join(temp_dir_path, f"{ticker}_transformed.csv")
+    transformed_data.to_csv(path, index=False)
+
     housefire_api.update_properties_by_ticker(
         ticker.upper(), HousefireAPI.df_to_request(transformed_data)
     )
-    _delete_temp_dir(temp_dir_path)
+    if delete_temp_dir:
+        _delete_temp_dir(temp_dir_path)
 
 
 @housefire.command()
@@ -230,47 +249,95 @@ async def run_data_pipeline_main(config: HousefireConfig, ticker: str):
     is_flag=True,
     help="Run the scraper debugger function instead of the full scraper.",
 )
+@click.option(
+    "--delete-temp-dir",
+    default=True,
+    is_flag=True,
+    help="Whether to remove the temporary directory after the scraper has run.",
+)
 @click.pass_context
-def scrape(ctx, ticker: str, debug: bool):
+def scrape(ctx, ticker: str, debug: bool, delete_temp_dir: bool):
     """
     Scrapes the TICKER website for property data.
     """
     config = ctx.obj["CONFIG"]
-    uc.loop().run_until_complete(scrape_main(config, ticker, debug))
+    uc.loop().run_until_complete(scrape_main(config, ticker, debug, delete_temp_dir))
 
 
-async def scrape_main(config: HousefireConfig, ticker: str, debug: bool):
+async def scrape_main(
+    config: HousefireConfig, ticker: str, debug: bool, delete_temp_dir: bool
+):
     temp_dir_path = _create_temp_dir(config.temp_dir_path)
     logger_factory = HousefireLoggerFactory(config.deploy_env)
     scraper_factory = ScraperFactory(logger_factory, config.chrome_path, temp_dir_path)
     scraper = await scraper_factory.get_scraper(ticker)
     if debug:
-        await scraper._debug_scrape()
+        data = await scraper._debug_scrape()
     else:
-        click.echo(
-            "This feature is not yet implemented. To test scraping on its own, use the --debug flag."
-        )
-        # NOT CURRENTLY USED
-        # TODO: use this once i have implemented some caching/magic resilience for the scraper
-        # return await scraper.scrape()
-    _delete_temp_dir(temp_dir_path)
+        data = await scraper.scrape()
+    if delete_temp_dir:
+        _delete_temp_dir(temp_dir_path)
+    else:
+        path = os.path.join(temp_dir_path, f"{ticker}_scraped.csv")
+        data.to_csv(path, index=False)
 
 
-# NOT CURRENTLY USED
-# TODO: implement this once i have implemented some local caching/magic resilience for the scraper and modularized the scrape and transforms to save to files separately
-# @main.command()
-# @click.argument("ticker", required=True)
-# @click.option("--debug", default=False, is_flag=True, help="Run the transformer debugger function instead of the full transformer.")
-# def transform(ticker: str, debug: bool):
-#     """
-#     Transforms the TICKER scraped data into a standardized format.
-#     """
-#     transformer_factory = TransformerFactory()
-#     transformer = transformer_factory.get_transformer(ticker)
-#     if debug:
-#         transformer._debug_transform()
-#     else:
-#         click.echo("This feature is not yet implemented. To test transforming on its own, use the --debug flag.")
+@housefire.command()
+@click.argument("ticker", required=True)
+@click.argument(
+    "csv-input-path",
+    required=True,
+    type=click.Path(
+        exists=True,
+        dir_okay=False,
+        resolve_path=True,
+        readable=True,
+        writable=False,
+        allow_dash=True,
+    ),
+)
+@click.option(
+    "--debug",
+    default=False,
+    is_flag=True,
+    help="Run the transformer debugger function instead of the full transformer.",
+)
+@click.option(
+    "--save-output",
+    default=False,
+    is_flag=True,
+    help="Whether to save the transformation output.",
+)
+@click.pass_context
+def transform(ctx, ticker: str, csv_input_path: str, debug: bool, save_output: bool):
+    """
+    Transforms the TICKER scraped data into a standardized format.
+    """
+    config = ctx.obj["CONFIG"]
+    logger_factory = HousefireLoggerFactory(config.deploy_env)
+    housefire_api = HousefireAPI(
+        logger_factory.get_logger(HousefireAPI.__name__),
+        config.housefire_api_key,
+        config.housefire_base_url,
+    )
+    geocode_api = GoogleGeocodeAPI(
+        logger_factory.get_logger(GoogleGeocodeAPI.__name__),
+        housefire_api,
+        config.google_maps_api_key,
+    )
+    transformer_factory = TransformerFactory(logger_factory, geocode_api)
+    transformer = transformer_factory.get_transformer(ticker)
+    with open(csv_input_path, "r") as input_file:
+        data = pd.read_csv(input_file)
+    if debug:
+        transformed_data = transformer._debug_transform(data)
+    else:
+        transformed_data = transformer.transform(data)
+    csv_path = pathlib.Path(csv_input_path)
+    output_path = str(csv_path.parent) + f"/{ticker}_transformed.csv"
+    if save_output:
+        transformed_data.to_csv(output_path, index=False)
+
 
 # TODO: write an uploader as well
 

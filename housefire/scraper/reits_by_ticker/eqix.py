@@ -133,17 +133,17 @@ class EqixScraper(Scraper):
         start_url = "https://www.equinix.com/data-centers/asia-pacific-colocation/australia-colocation/brisbane-data-centers/br1"
         self.logger.debug(f"debug scraping for {self.ticker} at {start_url}")
         tab = await self.driver.get(start_url)
-        df = await self._eqix_scrape_single_property(tab)
+        one_line_df = await self._eqix_scrape_single_property(tab)
         self.logger.debug("SCRAPED ONE ADDRESS LINE DF")
-        self.logger.debug(df)
+        self.logger.debug(one_line_df)
         self.logger.debug("\n\n\n")
 
         tab = await self.driver.get(
             "https://www.equinix.com/data-centers/americas-colocation/united-states-colocation/chicago-data-centers/ch2"
         )
-        df = await self._eqix_scrape_single_property(tab)
+        two_line_df = await self._eqix_scrape_single_property(tab)
         self.logger.debug("SCRAPED TWO ADDRESS LINE DF")
-        self.logger.debug(df)
+        self.logger.debug(two_line_df)
         self.logger.debug("\n\n\n")
 
         tab = await self.driver.get("https://www.equinix.com/data-centers")
@@ -167,3 +167,5 @@ class EqixScraper(Scraper):
         self.logger.debug("SCRAPED SINGLE PROPERTY URL")
         self.logger.debug(df)
         self.logger.debug("\n\n\n")
+
+        return pd.concat([one_line_df, two_line_df])

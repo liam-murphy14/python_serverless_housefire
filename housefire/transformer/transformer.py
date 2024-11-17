@@ -17,13 +17,12 @@ class Transformer(ABC):
     def execute_transform(self, data: pd.DataFrame) -> pd.DataFrame:
         return NotImplemented
 
-    # TODO: add this once CLI is ready
-    # @abstractmethod
-    # def _debug_transform(self, data: pd.DataFrame) -> None:
-    #     """
-    #     debugging method to transform data at a small scale, can be used for manual testing
-    #     """
-    #     pass
+    def _debug_transform(self, data: pd.DataFrame) -> pd.DataFrame:
+        """
+        debugging method to transform data at a small scale, can be used for manual testing
+        """
+        head = data.head().copy()
+        return self.transform(head)
 
     def transform(self, data: pd.DataFrame) -> pd.DataFrame:
         """

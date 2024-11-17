@@ -64,3 +64,4 @@ class DlrScraper(Scraper):
         self.logger.debug(f"SCRAPED SINGLE REGION DF")
         self.logger.debug(df)
         self.logger.debug("\n\n\n")
+        return df

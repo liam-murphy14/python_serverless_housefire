@@ -69,5 +69,7 @@ class WellScraper(Scraper):
             "https://medicaloffice.welltower.com/450-south-kitsap-boulevard"
         )
         self.logger.debug("SCRAPED SINGLE PROPERTY")
-        self.logger.debug(await self._welltower_scrape_single_property(tab))
+        single_property = await self._welltower_scrape_single_property(tab)
+        self.logger.debug(single_property)
         self.logger.debug("\n\n\n")
+        return single_property

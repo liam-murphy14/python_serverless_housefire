@@ -75,3 +75,25 @@ class PldScraper(Scraper):
             raise Exception("could not find download button")
         await csv_download_button.click()
         await self._wait(10)
+
+        file_list = list(
+            filter(
+                lambda filename: not filename.startswith("."),
+                os.listdir(self.temp_dir_path),
+            )
+        )
+
+        if len(file_list) == 0:
+            raise Exception("could not find downloaded csv")
+
+        self.logger.debug(
+            f"downloaded pld csv, self.temp_dir_path: {self.temp_dir_path}, files: {file_list}"
+        )
+
+        # get the downloaded file, hacky but works
+        filepath = os.path.join(self.temp_dir_path, file_list[0])
+        self.logger.debug(f"reading csv file: {filepath}")
+        df = pd.read_csv(filepath)
+        self.logger.debug("deleting csv")
+        os.remove(filepath)
+        return df
