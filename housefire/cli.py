@@ -1,3 +1,4 @@
+import datetime
 import pathlib
 import click
 import nodriver as uc
@@ -188,26 +189,28 @@ def init(
 @housefire.command()
 @click.argument("ticker", required=True)
 @click.option(
-    "--delete-temp-dir",
+    "--save-output",
     default=True,
     is_flag=True,
-    help="Whether to remove the temporary directory after the data pipeline has run.",
+    help="Whether to save the temporary directory after the data pipeline has run.",
 )
 @click.pass_context
-def run_data_pipeline(ctx, ticker: str, delete_temp_dir: bool):
+def run_data_pipeline(ctx, ticker: str, save_output: bool):
     """
     Run the full data pipeline for scraping the TICKER website and uploading to housefire.
     """
-    config = ctx.obj["CONFIG"]
-    uc.loop().run_until_complete(
-        run_data_pipeline_main(config, ticker, delete_temp_dir)
-    )
+    config: HousefireConfig = ctx.obj["CONFIG"]
+    # create temp dir if it doesn't exist
+    if not os.path.exists(config.temp_dir_path):
+        os.makedirs(config.temp_dir_path)
+
+    uc.loop().run_until_complete(run_data_pipeline_main(config, ticker, save_output))
 
 
 async def run_data_pipeline_main(
-    config: HousefireConfig, ticker: str, delete_temp_dir: bool
+    config: HousefireConfig, ticker: str, save_output: bool
 ):
-    temp_dir_path = _create_temp_dir(config.temp_dir_path)
+    temp_dir_path = _create_temp_dir(config.temp_dir_path, ticker)
     logger_factory = HousefireLoggerFactory(config.deploy_env)
     scraper_factory = ScraperFactory(logger_factory, config.chrome_path, temp_dir_path)
     scraper = await scraper_factory.get_scraper(ticker)
@@ -237,7 +240,7 @@ async def run_data_pipeline_main(
     housefire_api.update_properties_by_ticker(
         ticker.upper(), HousefireAPI.df_to_request(transformed_data)
     )
-    if delete_temp_dir:
+    if not save_output:
         _delete_temp_dir(temp_dir_path)
 
 
@@ -250,24 +253,27 @@ async def run_data_pipeline_main(
     help="Run the scraper debugger function instead of the full scraper.",
 )
 @click.option(
-    "--delete-temp-dir",
-    default=True,
+    "--save-output",
+    default=False,
     is_flag=True,
-    help="Whether to remove the temporary directory after the scraper has run.",
+    help="Whether to save the temporary directory after the scraper has run.",
 )
 @click.pass_context
-def scrape(ctx, ticker: str, debug: bool, delete_temp_dir: bool):
+def scrape(ctx, ticker: str, debug: bool, save_output: bool):
     """
     Scrapes the TICKER website for property data.
     """
-    config = ctx.obj["CONFIG"]
-    uc.loop().run_until_complete(scrape_main(config, ticker, debug, delete_temp_dir))
+    config: HousefireConfig = ctx.obj["CONFIG"]
+    # create temp dir if it doesn't exist
+    if not os.path.exists(config.temp_dir_path):
+        os.makedirs(config.temp_dir_path)
+    uc.loop().run_until_complete(scrape_main(config, ticker, debug, save_output))
 
 
 async def scrape_main(
-    config: HousefireConfig, ticker: str, debug: bool, delete_temp_dir: bool
+    config: HousefireConfig, ticker: str, debug: bool, save_output: bool
 ):
-    temp_dir_path = _create_temp_dir(config.temp_dir_path)
+    temp_dir_path = _create_temp_dir(config.temp_dir_path, ticker)
     logger_factory = HousefireLoggerFactory(config.deploy_env)
     scraper_factory = ScraperFactory(logger_factory, config.chrome_path, temp_dir_path)
     scraper = await scraper_factory.get_scraper(ticker)
@@ -275,11 +281,11 @@ async def scrape_main(
         data = await scraper._debug_scrape()
     else:
         data = await scraper.scrape()
-    if delete_temp_dir:
-        _delete_temp_dir(temp_dir_path)
-    else:
+    if save_output:
         path = os.path.join(temp_dir_path, f"{ticker}_scraped.csv")
         data.to_csv(path, index=False)
+    else:
+        _delete_temp_dir(temp_dir_path)
 
 
 @housefire.command()
@@ -313,7 +319,10 @@ def transform(ctx, ticker: str, csv_input_path: str, debug: bool, save_output: b
     """
     Transforms the TICKER scraped data into a standardized format.
     """
-    config = ctx.obj["CONFIG"]
+    config: HousefireConfig = ctx.obj["CONFIG"]
+    # create temp dir if it doesn't exist
+    if not os.path.exists(config.temp_dir_path):
+        os.makedirs(config.temp_dir_path)
     logger_factory = HousefireLoggerFactory(config.deploy_env)
     housefire_api = HousefireAPI(
         logger_factory.get_logger(HousefireAPI.__name__),
@@ -342,7 +351,7 @@ def transform(ctx, ticker: str, csv_input_path: str, debug: bool, save_output: b
 # TODO: write an uploader as well
 
 
-def _create_temp_dir(base_dir_path: str) -> str:
+def _create_temp_dir(base_dir_path: str, ticker: str) -> str:
     """
     Create a new directory with a random name in the temp directory
 
@@ -350,7 +359,7 @@ def _create_temp_dir(base_dir_path: str) -> str:
 
     returns: the full path to the new directory
     """
-    dir_name = str(uuid.uuid4())
+    dir_name = ticker + str(datetime.datetime.now()) + str(uuid.uuid4())
     new_dir_path = os.path.join(base_dir_path, dir_name)
     os.mkdir(new_dir_path)
     return new_dir_path
