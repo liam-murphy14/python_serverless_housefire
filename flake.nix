@@ -32,8 +32,8 @@
                   requests
                   nodriver
                   googlemaps
-                  black
                   click
+                  black
                 ]
               )
             )

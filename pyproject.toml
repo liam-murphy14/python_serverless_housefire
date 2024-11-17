@@ -17,6 +17,7 @@ dependencies = [
     "requests",
     "nodriver",
     "googlemaps",
+    "click",
 ]
 
 [project.urls]
