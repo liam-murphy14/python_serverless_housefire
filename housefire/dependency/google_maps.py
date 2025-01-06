@@ -100,8 +100,7 @@ class GoogleGeocodeAPI(Dependency):
                 if "plus_code" in google_geocode
                 else None
             ),
-            "latitude": google_geocode["geometry"]["location"][
-                "lat"
-            ],  # these should never be None, throw error
+            # these should never be None, throw error
+            "latitude": google_geocode["geometry"]["location"]["lat"],
             "longitude": google_geocode["geometry"]["location"]["lng"],
         }
