@@ -5,12 +5,13 @@ import nodriver as uc
 import os
 import uuid
 import configparser
-import pandas as pd
 
 from housefire.dependency.google_maps import GoogleGeocodeAPI
-from housefire.dependency.housefire_api import HousefireAPI
+from housefire.dependency.housefire_client.client import HousefireClient
 from housefire.logger import HousefireLoggerFactory
 from housefire.scraper.scraper_factory import ScraperFactory
+from housefire.scraper.scraper import ScrapeResult
+from housefire.transformer.transformer import TransformResult
 from housefire.transformer.transformer_factory import TransformerFactory
 from housefire.config import HousefireConfig
 
@@ -102,7 +103,7 @@ def init(
     # set defaults
     temp_dir_path_default = "/tmp/housefire_data"
     housefire_base_url_default = "https://housefire.liammurphydev.com/api/"
-    deploy_env_default = "development"
+    deploy_env_default = "production"
 
     # create temp dir if it doesn't exist
     if not os.path.exists(temp_dir_path_default):
@@ -190,7 +191,7 @@ def init(
 @click.argument("ticker", required=True)
 @click.option(
     "--save-output",
-    default=True,
+    default=False,
     is_flag=True,
     help="Whether to save the temporary directory after the data pipeline has run.",
 )
@@ -212,33 +213,36 @@ async def run_data_pipeline_main(
 ):
     temp_dir_path = _create_temp_dir(config.temp_dir_path, ticker)
     logger_factory = HousefireLoggerFactory(config.deploy_env)
-    scraper_factory = ScraperFactory(logger_factory, config.chrome_path, temp_dir_path)
-    scraper = await scraper_factory.get_scraper(ticker)
+
+    # scrape
+    scraper_factory = ScraperFactory(logger_factory, config.chrome_path)
+    scraper = await scraper_factory.get_scraper(ticker, temp_dir_path)
     scraped_data = await scraper.scrape()
 
-    path = os.path.join(temp_dir_path, f"{ticker}_scraped.csv")
-    scraped_data.to_csv(path, index=False)
+    if save_output:
+        path = os.path.join(temp_dir_path, f"{ticker}_scraped.csv")
+        ScrapeResult.to_csv(scraped_data, pathlib.Path(path))
 
-    housefire_api = HousefireAPI(
-        logger_factory.get_logger(HousefireAPI.__name__),
-        config.housefire_api_key,
-        config.housefire_base_url,
-    )
+    # initialize dependencies
+    housefire_api = HousefireClient(config.housefire_api_key, config.housefire_base_url)
     geocode_api = GoogleGeocodeAPI(
         logger_factory.get_logger(GoogleGeocodeAPI.__name__),
         housefire_api,
         config.google_maps_api_key,
     )
 
+    # transform
     transformer_factory = TransformerFactory(logger_factory, geocode_api)
     transformer = transformer_factory.get_transformer(ticker)
     transformed_data = transformer.transform(scraped_data)
 
-    path = os.path.join(temp_dir_path, f"{ticker}_transformed.csv")
-    transformed_data.to_csv(path, index=False)
+    if save_output:
+        path = os.path.join(temp_dir_path, f"{ticker}_transformed.csv")
+        TransformResult.to_csv(transformed_data, pathlib.Path(path))
 
+    # upload
     housefire_api.update_properties_by_ticker(
-        ticker.upper(), HousefireAPI.df_to_request(transformed_data)
+        ticker.upper(), [d.property for d in transformed_data]
     )
     if not save_output:
         _delete_temp_dir(temp_dir_path)
@@ -275,17 +279,19 @@ async def scrape_main(
 ):
     temp_dir_path = _create_temp_dir(config.temp_dir_path, ticker)
     logger_factory = HousefireLoggerFactory(config.deploy_env)
-    scraper_factory = ScraperFactory(logger_factory, config.chrome_path, temp_dir_path)
-    scraper = await scraper_factory.get_scraper(ticker)
+    scraper_factory = ScraperFactory(logger_factory, config.chrome_path)
+    scraper = await scraper_factory.get_scraper(ticker, temp_dir_path)
     if debug:
         data = await scraper._debug_scrape()
     else:
         data = await scraper.scrape()
     if save_output:
         path = os.path.join(temp_dir_path, f"{ticker}_scraped.csv")
-        data.to_csv(path, index=False)
+        ScrapeResult.to_csv(data, pathlib.Path(path))
+        click.echo(f"Scraped data saved to {path}")
     else:
         _delete_temp_dir(temp_dir_path)
+        click.echo(f"Temporary directory {temp_dir_path} deleted after scraping.")
 
 
 @housefire.command()
@@ -324,11 +330,7 @@ def transform(ctx, ticker: str, csv_input_path: str, debug: bool, save_output: b
     if not os.path.exists(config.temp_dir_path):
         os.makedirs(config.temp_dir_path)
     logger_factory = HousefireLoggerFactory(config.deploy_env)
-    housefire_api = HousefireAPI(
-        logger_factory.get_logger(HousefireAPI.__name__),
-        config.housefire_api_key,
-        config.housefire_base_url,
-    )
+    housefire_api = HousefireClient(config.housefire_api_key, config.housefire_base_url)
     geocode_api = GoogleGeocodeAPI(
         logger_factory.get_logger(GoogleGeocodeAPI.__name__),
         housefire_api,
@@ -336,19 +338,50 @@ def transform(ctx, ticker: str, csv_input_path: str, debug: bool, save_output: b
     )
     transformer_factory = TransformerFactory(logger_factory, geocode_api)
     transformer = transformer_factory.get_transformer(ticker)
-    with open(csv_input_path, "r") as input_file:
-        data = pd.read_csv(input_file)
+    csv_path = pathlib.Path(csv_input_path)
+    click.echo(f"Reading scraped data from {csv_path}")
+    data: list[ScrapeResult] = ScrapeResult.from_csv(csv_path)
     if debug:
         transformed_data = transformer._debug_transform(data)
     else:
         transformed_data = transformer.transform(data)
-    csv_path = pathlib.Path(csv_input_path)
-    output_path = str(csv_path.parent) + f"/{ticker}_transformed.csv"
     if save_output:
-        transformed_data.to_csv(output_path, index=False)
+        temp_dir_path = _create_temp_dir(config.temp_dir_path, ticker)
+        output_path = os.path.join(temp_dir_path, f"{ticker}_transformed.csv")
+        TransformResult.to_csv(transformed_data, pathlib.Path(output_path))
+        click.echo(f"Transformed data saved to {output_path}")
 
 
-# TODO: write an uploader as well
+@housefire.command()
+@click.argument("ticker", required=True)
+@click.argument(
+    "csv-input-path",
+    required=True,
+    type=click.Path(
+        exists=True,
+        dir_okay=False,
+        resolve_path=True,
+        readable=True,
+        writable=False,
+        allow_dash=True,
+    ),
+)
+@click.pass_context
+def upload(ctx, ticker: str, csv_input_path: str):
+    """
+    Uploads the transformed TICKER data from a CSV file to the Housefire API.
+    """
+    config: HousefireConfig = ctx.obj["CONFIG"]
+    housefire_api = HousefireClient(config.housefire_api_key, config.housefire_base_url)
+
+    csv_path = pathlib.Path(csv_input_path)
+    click.echo(f"Uploading transformed data from {csv_path} to Housefire API.")
+
+    data: list[TransformResult] = TransformResult.from_csv(csv_path)
+    housefire_api.update_properties_by_ticker(
+        ticker.upper(), [d.property for d in data]
+    )
+    click.echo(f"Data for {ticker} uploaded successfully.")
 
 
 def _create_temp_dir(base_dir_path: str, ticker: str) -> str:
@@ -359,7 +392,9 @@ def _create_temp_dir(base_dir_path: str, ticker: str) -> str:
 
     returns: the full path to the new directory
     """
-    dir_name = ticker + str(datetime.datetime.now()) + str(uuid.uuid4())
+    dir_name = "_".join(
+        (ticker, datetime.datetime.now().isoformat(), str(uuid.uuid4()))
+    )
     new_dir_path = os.path.join(base_dir_path, dir_name)
     os.mkdir(new_dir_path)
     return new_dir_path
@@ -396,5 +431,4 @@ def _delete_temp_dir(temp_dir_path: str) -> None:
 #         to_concat_list.append(f'     "{ticker}": "{cik_str}",')
 #     to_concat_list.append("}")
 #     return "\n".join(to_concat_list)
-#
 #

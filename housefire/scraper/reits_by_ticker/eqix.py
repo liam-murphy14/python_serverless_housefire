@@ -1,17 +1,16 @@
 import nodriver as uc
-import pandas as pd
-from housefire.scraper.scraper import Scraper
+from housefire.scraper.scraper import Scraper, ScrapeResult
 
 
 class EqixScraper(Scraper):
     def __init__(self):
         super().__init__()
 
-    async def execute_scrape(self) -> pd.DataFrame:
+    async def execute_scrape(self) -> list[ScrapeResult]:
         start_url = "https://www.equinix.com/data-centers"
         tab = await self.driver.get(start_url)
 
-        df_list = list()
+        results: list[ScrapeResult] = list()
         city_urls = await self._eqix_scrape_city_urls(tab)
         self.logger.debug(f"found city urls: {city_urls}")
         property_urls = list()
@@ -32,14 +31,14 @@ class EqixScraper(Scraper):
             await self._jiggle()
             property_tab = await self.driver.get(property_url, new_tab=True)
             try:
-                df = await self._eqix_scrape_single_property(property_tab)
-                df_list.append(df)
+                result = await self._eqix_scrape_single_property(property_tab)
+                results.append(result)
             except Exception as e:
                 self.logger.warning(f"error scraping property: {property_url}, {e}")
             finally:
                 await property_tab.close()
 
-        return pd.concat(df_list)
+        return results
 
     async def _eqix_scrape_city_urls(self, tab: uc.Tab) -> list[str]:
         tab_content = await tab.select(".tabs-content")
@@ -80,7 +79,7 @@ class EqixScraper(Scraper):
 
         return urls_to_scrape
 
-    async def _eqix_scrape_single_property(self, tab: uc.Tab) -> pd.DataFrame:
+    async def _eqix_scrape_single_property(self, tab: uc.Tab) -> ScrapeResult:
         name_div = await tab.select(".hero-slice-sub-headline")
         short_name_div = await tab.select(".hero-slice-headline")
         self.logger.debug(f"name divs: {name_div}\n\n {short_name_div}")
@@ -122,12 +121,11 @@ class EqixScraper(Scraper):
             address_line_1_div.text.strip() if address_line_1_div is not None else None
         )
 
-        return pd.DataFrame(
-            {
-                "name": [name],
-                "address": [f"{address}, {city}, {state}, {zip_code}, {country}"],
-            }
-        )
+        property_info = {
+            "name": name,
+            "address_input": f"{address}, {city}, {state}, {zip_code}, {country}",
+        }
+        return ScrapeResult(property_info)
 
     async def _debug_scrape(self):
         start_url = "https://www.equinix.com/data-centers/asia-pacific-colocation/australia-colocation/brisbane-data-centers/br1"
@@ -147,25 +145,25 @@ class EqixScraper(Scraper):
         self.logger.debug("\n\n\n")
 
         tab = await self.driver.get("https://www.equinix.com/data-centers")
-        df = await self._eqix_scrape_city_urls(tab)
+        properties = await self._eqix_scrape_city_urls(tab)
         self.logger.debug("SCRAPED CITY URLS")
-        self.logger.debug(df)
+        self.logger.debug(properties)
         self.logger.debug("\n\n\n")
 
         tab = await self.driver.get(
             "https://www.equinix.com/data-centers/americas-colocation/canada-colocation/calgary-data-centers"
         )
-        df = await self._eqix_scrape_single_city_property_urls(tab)
+        result1 = await self._eqix_scrape_single_city_property_urls(tab)
         self.logger.debug("SCRAPED MULTIPLE PROPERTY URLS")
-        self.logger.debug(df)
+        self.logger.debug(properties)
         self.logger.debug("\n\n\n")
 
         tab = await self.driver.get(
             "https://www.equinix.com/data-centers/asia-pacific-colocation/australia-colocation/brisbane-data-centers"
         )
-        df = await self._eqix_scrape_single_city_property_urls(tab)
+        result2 = await self._eqix_scrape_single_city_property_urls(tab)
         self.logger.debug("SCRAPED SINGLE PROPERTY URL")
-        self.logger.debug(df)
+        self.logger.debug(properties)
         self.logger.debug("\n\n\n")
 
-        return pd.concat([one_line_df, two_line_df])
+        return [one_line_df, two_line_df]

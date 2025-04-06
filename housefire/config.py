@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import configparser
 
 
-@dataclass()
+@dataclass
 class HousefireConfig:
     """Class for accessing housefire configuration"""
 

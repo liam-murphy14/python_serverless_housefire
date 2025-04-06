@@ -1,7 +1,6 @@
 import requests as r
 import time
-from housefire.dependency.housefire_client.property import Property
-from housefire.dependency.housefire_client.geocode import Geocode
+from housefire.dependency.housefire_client.housefire_object import Property, Geocode
 
 
 class HousefireClient:
@@ -12,7 +11,11 @@ class HousefireClient:
         api_key (str): Housefire API key
     """
 
-    def __init__(self, housefire_api_key: str, housefire_base_url: str = "https://housefire.liammurphydev.com/api/"):
+    def __init__(
+        self,
+        housefire_api_key: str,
+        housefire_base_url: str = "https://housefire.liammurphydev.com/api/",
+    ):
         self.base_url = housefire_base_url
         self.headers = {
             "x-api-key": housefire_api_key,
@@ -25,19 +28,19 @@ class HousefireClient:
             full_url = self.base_url + endpoint[1:]
         return full_url
 
-    def _get(self, endpoint, params=None) -> r.Response:
+    def _get(self, endpoint: str, params=None) -> r.Response:
         response = r.get(
             self._construct_url(endpoint), headers=self.headers, params=params
         )
         return response
 
-    def _post(self, endpoint, data=None) -> r.Response:
+    def _post(self, endpoint: str, data=None) -> r.Response:
         response = r.post(
             self._construct_url(endpoint), headers=self.headers, json=data
         )
         return response
 
-    def _delete(self, endpoint) -> r.Response:
+    def _delete(self, endpoint: str) -> r.Response:
         response = r.delete(self._construct_url(endpoint), headers=self.headers)
         return response
 
@@ -53,7 +56,9 @@ class HousefireClient:
             raise Exception(
                 f"unexpected error getting properties for ticker {ticker}: {r}"
             )
-        return list(map(lambda prop_dict : Property.from_dict(prop_dict), list(r.json())))
+        return list(
+            map(lambda prop_dict: Property.from_dict(prop_dict), list(r.json()))
+        )
 
     def delete_properties_by_ticker(self, ticker: str) -> int:
         """
@@ -82,14 +87,18 @@ class HousefireClient:
         """
         if data is None or len(data) == 0:
             raise Exception("data must be a non-empty list of Property objects")
-        r = self._post(f"/properties", list(map(lambda prop : prop.to_dict(), data)))
+        r = self._post(f"/properties", list(map(lambda prop: prop.to_dict(), data)))
         if r.status_code == 400:
             raise ValueError(f"validation error while creating properties: {r}")
         elif self._is_error_response(r):
             raise Exception(f"unexpected error creating properties: {r}")
-        return list(map(lambda prop_dict : Property.from_dict(prop_dict), list(r.json())))
+        return list(
+            map(lambda prop_dict: Property.from_dict(prop_dict), list(r.json()))
+        )
 
-    def update_properties_by_ticker(self, ticker: str, data: list[Property]) -> list[Property]:
+    def update_properties_by_ticker(
+        self, ticker: str, data: list[Property]
+    ) -> list[Property]:
         """
         updates many properties for a given ticker, returning a list of the updated properties,
         raising an exception in the case of a validation error, or any other unexpected error

@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
+import csv
+from dataclasses import dataclass
 from logging import Logger
-import pandas as pd
 import nodriver as uc
 import random as r
-import time
+from pathlib import Path
 
 
 class Scraper(ABC):
@@ -17,23 +18,23 @@ class Scraper(ABC):
         pass
 
     @abstractmethod
-    async def execute_scrape(self) -> pd.DataFrame:
+    async def execute_scrape(self) -> list["ScrapeResult"]:
         return NotImplemented
 
     @abstractmethod
-    async def _debug_scrape(self) -> pd.DataFrame:
+    async def _debug_scrape(self) -> list["ScrapeResult"]:
         """
         debugging method to scrape data at a small scale, can be used for manual testing
         """
         pass
 
-    async def scrape(self) -> pd.DataFrame:
+    async def scrape(self) -> list["ScrapeResult"]:
         """
         Scrape data and log
         """
         self.logger.debug(f"Scraping data for REIT: {self.ticker}")
         scraped_data = await self.execute_scrape()
-        self.logger.debug(f"Scraped data for REIT: {self.ticker}, df: {scraped_data}")
+        self.logger.debug(f"Scraped data for REIT: {self.ticker}")
         return scraped_data
 
     async def _jiggle(self):
@@ -56,3 +57,25 @@ class Scraper(ABC):
         self.logger.debug(f"Waiting for {seconds} seconds")
         await self.driver.wait(seconds)
         return seconds
+
+
+@dataclass
+class ScrapeResult:
+    property_info: dict[str, str]
+
+    @staticmethod
+    def to_csv(data: list["ScrapeResult"], destination_file: Path) -> None:
+        all_property_info_keys = {k for d in data for k in d.property_info.keys()}
+        with open(destination_file, "w") as f:
+            writer = csv.DictWriter(
+                f, fieldnames=all_property_info_keys, dialect=csv.unix_dialect
+            )
+            writer.writeheader()
+            for d in data:
+                writer.writerow(d.property_info)
+
+    @staticmethod
+    def from_csv(file_path: Path) -> list["ScrapeResult"]:
+        with open(file_path, "r") as f:
+            reader = csv.DictReader(f, dialect=csv.unix_dialect)
+            return [ScrapeResult(property_info=row) for row in reader]
