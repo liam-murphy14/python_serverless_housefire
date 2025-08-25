@@ -5,7 +5,9 @@ import os.path
 
 
 class HousefireLoggerFactory:
-    def __init__(self, deploy_env: str):
+    def __init__(
+        self, deploy_env: str, log_dir_path: str
+    ):  # Add log_dir_path parameter
         base_housefire_logger = logging.getLogger("housefire")
         base_housefire_logger.setLevel(
             logging.DEBUG if deploy_env == "development" else logging.INFO
@@ -16,12 +18,10 @@ class HousefireLoggerFactory:
             datefmt="%Y-%m-%dT%H:%M:%SZ",
         )
 
-        if not os.path.exists("/tmp/housefire_logs") or not os.path.isdir(
-            "/tmp/housefire_logs"
-        ):
-            os.mkdir("/tmp/housefire_logs")
+        if not os.path.exists(log_dir_path) or not os.path.isdir(log_dir_path):
+            os.mkdir(log_dir_path)
         base_housefire_handler = logging.handlers.RotatingFileHandler(
-            os.path.join("/tmp/housefire_logs", "housefire.log"),
+            os.path.join(log_dir_path, "housefire.log"),  # Use log_dir_path
             backupCount=5,
             maxBytes=5000000,
         )

@@ -78,6 +78,19 @@ def housefire(ctx, config_path: str):
 @click.option("--google-maps-api-key", help="Google Maps API key.", type=str)
 @click.option("--housefire-base-url", help="Housefire API base URL.", type=str)
 @click.option("--deploy-env", help="Housefire API base URL.", type=str)
+@click.option(
+    "--log-dir-path",
+    help="Path to the log directory where logs will be stored.",
+    type=click.Path(
+        file_okay=False,
+        dir_okay=True,
+        exists=True,
+        resolve_path=True,
+        readable=True,
+        writable=True,
+        allow_dash=False,
+    ),
+)
 @click.pass_context
 def init(
     ctx,
@@ -86,6 +99,7 @@ def init(
     google_maps_api_key: str,
     housefire_base_url: str,
     deploy_env: str,
+    log_dir_path: str,  # New parameter
 ):
     """
     Initialize the housefire CLI, creating a config file if it does not already exist.
@@ -104,6 +118,7 @@ def init(
     temp_dir_path_default = "/tmp/housefire_data"
     housefire_base_url_default = "https://housefire.liammurphydev.com/api/"
     deploy_env_default = "production"
+    log_dir_path_default = "/tmp/housefire_logs"
 
     # create temp dir if it doesn't exist
     if not os.path.exists(temp_dir_path_default):
@@ -182,6 +197,27 @@ def init(
         )
     config_object["HOUSEFIRE"]["DEPLOY_ENV"] = deploy_env
 
+    if log_dir_path is None or len(log_dir_path) == 0:
+        log_dir_path_prompt_value = (
+            config_object["HOUSEFIRE"].get("LOG_DIR_PATH")
+            if "LOG_DIR_PATH" in config_object["HOUSEFIRE"]
+            else log_dir_path_default
+        )
+        log_dir_path = click.prompt(
+            f"Enter the path to the log directory where logs will be stored. Press enter to accept current value",
+            default=log_dir_path_prompt_value,
+            type=click.Path(
+                file_okay=False,
+                dir_okay=True,
+                exists=True,
+                resolve_path=True,
+                readable=True,
+                writable=True,
+                allow_dash=False,
+            ),
+        )
+    config_object["HOUSEFIRE"]["LOG_DIR_PATH"] = log_dir_path
+
     with open(config_path, "w") as config_file:
         config_object.write(config_file)
     click.echo(f"Config file at {config_path} has been initialized.")
@@ -212,7 +248,7 @@ async def run_data_pipeline_main(
     config: HousefireConfig, ticker: str, save_output: bool
 ):
     temp_dir_path = _create_temp_dir(config.temp_dir_path, ticker)
-    logger_factory = HousefireLoggerFactory(config.deploy_env)
+    logger_factory = HousefireLoggerFactory(config.deploy_env, config.log_dir_path)
 
     # scrape
     scraper_factory = ScraperFactory(logger_factory, config.chrome_path)
@@ -278,7 +314,7 @@ async def scrape_main(
     config: HousefireConfig, ticker: str, debug: bool, save_output: bool
 ):
     temp_dir_path = _create_temp_dir(config.temp_dir_path, ticker)
-    logger_factory = HousefireLoggerFactory(config.deploy_env)
+    logger_factory = HousefireLoggerFactory(config.deploy_env, config.log_dir_path)
     scraper_factory = ScraperFactory(logger_factory, config.chrome_path)
     scraper = await scraper_factory.get_scraper(ticker, temp_dir_path)
     if debug:
@@ -329,7 +365,7 @@ def transform(ctx, ticker: str, csv_input_path: str, debug: bool, save_output: b
     # create temp dir if it doesn't exist
     if not os.path.exists(config.temp_dir_path):
         os.makedirs(config.temp_dir_path)
-    logger_factory = HousefireLoggerFactory(config.deploy_env)
+    logger_factory = HousefireLoggerFactory(config.deploy_env, config.log_dir_path)
     housefire_api = HousefireClient(config.housefire_api_key, config.housefire_base_url)
     geocode_api = GoogleGeocodeAPI(
         logger_factory.get_logger(GoogleGeocodeAPI.__name__),

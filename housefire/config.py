@@ -11,6 +11,7 @@ class HousefireConfig:
     google_maps_api_key: str
     housefire_base_url: str
     deploy_env: str
+    log_dir_path: str
     # set this at build time with nix
     chrome_path: str = "@NIX_TARGET_CHROME_PATH@"
 
@@ -22,6 +23,7 @@ class HousefireConfig:
         self.google_maps_api_key = config_object["HOUSEFIRE"].get("GOOGLE_MAPS_API_KEY")
         self.housefire_base_url = config_object["HOUSEFIRE"].get("HOUSEFIRE_BASE_URL")
         self.deploy_env = config_object["HOUSEFIRE"].get("DEPLOY_ENV")
+        self.log_dir_path = config_object["HOUSEFIRE"].get("LOG_DIR_PATH")
 
     def is_initialized(self, config_object: configparser.ConfigParser):
         return (
@@ -30,4 +32,5 @@ class HousefireConfig:
             and "HOUSEFIRE_API_KEY" in config_object["HOUSEFIRE"]
             and "GOOGLE_MAPS_API_KEY" in config_object["HOUSEFIRE"]
             and "HOUSEFIRE_BASE_URL" in config_object["HOUSEFIRE"]
+            and "LOG_DIR_PATH" in config_object["HOUSEFIRE"]
         )
