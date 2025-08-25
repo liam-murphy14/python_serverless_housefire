@@ -13,6 +13,7 @@ class TestHousefireConfig(unittest.TestCase):
     TEST_GOOGLE_MAPS_API_KEY = "456"
     TEST_HOUSEFIRE_BASE_URL = "https://example.com"
     TEST_DEPLOY_ENV = "dev"
+    TEST_LOG_DIR_PATH = "/var/log/housefire"
 
     TEST_UNREPLACED_CHROME_PATH = "@NIX_TARGET_CHROME_PATH@"
 
@@ -30,6 +31,7 @@ class TestHousefireConfig(unittest.TestCase):
             housefire_config.housefire_base_url, self.TEST_HOUSEFIRE_BASE_URL
         )
         self.assertEqual(housefire_config.deploy_env, self.TEST_DEPLOY_ENV)
+        self.assertEqual(housefire_config.log_dir_path, self.TEST_LOG_DIR_PATH)
 
     def test_constructor_with_missing_section_raises_value_error(self):
         config_object = self.get_config_with_missing_section()
@@ -49,6 +51,7 @@ class TestHousefireConfig(unittest.TestCase):
             "GOOGLE_MAPS_API_KEY": self.TEST_GOOGLE_MAPS_API_KEY,
             "HOUSEFIRE_BASE_URL": self.TEST_HOUSEFIRE_BASE_URL,
             "DEPLOY_ENV": self.TEST_DEPLOY_ENV,
+            "LOG_DIR_PATH": self.TEST_LOG_DIR_PATH,
         }
         return config_object
 
@@ -59,6 +62,11 @@ class TestHousefireConfig(unittest.TestCase):
     def get_config_with_missing_temp_dir_path(self):
         config_object = self.get_initialized_config()
         del config_object[self.TEST_HOUSEFIRE_CONFIG_KEY]["TEMP_DIR_PATH"]
+        return config_object
+
+    def get_config_with_missing_log_dir_path(self):
+        config_object = self.get_initialized_config()
+        del config_object[self.TEST_HOUSEFIRE_CONFIG_KEY]["LOG_DIR_PATH"]
         return config_object
 
 
