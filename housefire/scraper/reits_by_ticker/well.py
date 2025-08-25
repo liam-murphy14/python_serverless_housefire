@@ -1,17 +1,17 @@
 import nodriver as uc
-import pandas as pd
-from housefire.scraper.scraper import Scraper
+from housefire.scraper.scraper import Scraper, ScrapeResult
+from housefire.dependency.housefire_client.housefire_object import Property
 
 
 class WellScraper(Scraper):
     def __init__(self):
         super().__init__()
 
-    async def execute_scrape(self) -> pd.DataFrame:
+    async def execute_scrape(self) -> list[ScrapeResult]:
         start_url = "https://medicaloffice.welltower.com/search?address=USA&min=null&max=null&moveInTiming="
         tab = await self.driver.get(start_url)
 
-        df_list = list()
+        results: list[ScrapeResult] = list()
         property_urls = await self._welltower_scrape_property_urls(tab)
         self.logger.debug(f"found property urls: {property_urls}")
 
@@ -19,14 +19,14 @@ class WellScraper(Scraper):
             await self._jiggle()
             property_tab = await self.driver.get(property_url, new_tab=True)
             try:
-                df = await self._welltower_scrape_single_property(property_tab)
-                df_list.append(df)
+                result = await self._welltower_scrape_single_property(property_tab)
+                results.append(result)
             except Exception as e:
                 self.logger.warning(f"error scraping property: {property_url}, {e}")
             finally:
                 await property_tab.close()
 
-        return pd.concat(df_list)
+        return results
 
     async def _welltower_scrape_property_urls(self, tab: uc.Tab) -> list[str]:
         await self._wait(30)
@@ -40,7 +40,7 @@ class WellScraper(Scraper):
             )
         )
 
-    async def _welltower_scrape_single_property(self, tab: uc.Tab) -> pd.DataFrame:
+    async def _welltower_scrape_single_property(self, tab: uc.Tab) -> ScrapeResult:
         name_div = await tab.select(".chakra-heading")
         address_div = (await tab.query_selector_all(".chakra-text"))[1]
         name = name_div.text.strip()
@@ -48,14 +48,14 @@ class WellScraper(Scraper):
         address_line_2 = address_div.text_all[len(address_line_1) :]
         city, state = tuple(map(lambda token: token.strip(), address_line_2.split(",")))
         country = "US"
-        return pd.DataFrame(
+        return ScrapeResult(
             {
-                "name": [name],
-                "address": [f"{address_line_1}, {city}, {state}, {country}"],
+                "name": name,
+                "address_input": f"{address_line_1}, {city}, {state}, {country}",
             }
         )
 
-    async def _debug_scrape(self):
+    async def _debug_scrape(self) -> list[ScrapeResult]:
         # WELL welltower scrape property links
         tab = await self.driver.get(
             "https://medicaloffice.welltower.com/search?address=USA&min=null&max=null&moveInTiming="
@@ -72,4 +72,4 @@ class WellScraper(Scraper):
         single_property = await self._welltower_scrape_single_property(tab)
         self.logger.debug(single_property)
         self.logger.debug("\n\n\n")
-        return single_property
+        return [single_property]

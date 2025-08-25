@@ -1,13 +1,13 @@
 import nodriver as uc
-import pandas as pd
-from housefire.scraper.scraper import Scraper
+from housefire.scraper.scraper import Scraper, ScrapeResult
+from housefire.dependency.housefire_client.housefire_object import Property
 
 
 class SpgScraper(Scraper):
     def __init__(self):
         super().__init__()
 
-    async def execute_scrape(self) -> pd.DataFrame:
+    async def execute_scrape(self) -> list[ScrapeResult]:
         us_start_url = "https://www.simon.com/mall"
         international_start_url = "https://www.simon.com/mall/international"
         us_tab = await self.driver.get(us_start_url, new_tab=True)
@@ -26,12 +26,10 @@ class SpgScraper(Scraper):
             f"{name}, {location}" for name, location in zip(names, locations)
         ]
 
-        return pd.DataFrame(
-            {
-                "name": names,
-                "address": geo_addresses,
-            }
-        )
+        return [
+            ScrapeResult({"name": name, "address_input": address})
+            for name, address in zip(names, geo_addresses)
+        ]
 
     async def _simon_scrape_property_mall(
         self,
@@ -70,9 +68,7 @@ class SpgScraper(Scraper):
         geo_addresses = [
             f"{name}, {location}" for name, location in zip(names, locations)
         ]
-        return pd.DataFrame(
-            {
-                "name": names,
-                "address": geo_addresses,
-            }
-        )
+        return [
+            ScrapeResult({"name": name, "address_input": address})
+            for name, address in zip(names, geo_addresses)
+        ]

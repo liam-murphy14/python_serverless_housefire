@@ -1,7 +1,10 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from logging import Logger
-import pandas as pd
-import numpy as np
+from pathlib import Path
+
+from housefire.dependency.housefire_client.housefire_object import Property
+from housefire.scraper.scraper import ScrapeResult
 
 
 class Transformer(ABC):
@@ -14,36 +17,38 @@ class Transformer(ABC):
         pass
 
     @abstractmethod
-    def execute_transform(self, data: pd.DataFrame) -> pd.DataFrame:
+    def execute_transform(self, data: list[ScrapeResult]) -> list["TransformResult"]:
         return NotImplemented
 
-    def _debug_transform(self, data: pd.DataFrame) -> pd.DataFrame:
+    def _debug_transform(self, data: list[ScrapeResult]) -> list["TransformResult"]:
         """
         debugging method to transform data at a small scale, can be used for manual testing
         """
-        head = data.head().copy()
+        head: list[ScrapeResult] = data[:5] if len(data) > 5 else data
         return self.transform(head)
 
-    def transform(self, data: pd.DataFrame) -> pd.DataFrame:
+    def transform(self, data: list[ScrapeResult]) -> list["TransformResult"]:
         """
         transform data and log
         """
         self.logger.debug(f"Transforming data for REIT: {self.ticker}, df: {data}")
         transformed_data = self.execute_transform(data)
-        transformed_data.fillna(np.nan, inplace=True)
-        transformed_data.replace([np.nan], [None], inplace=True)
-        transformed_data_with_ticker = transformed_data.assign(
-            reitTicker=self.ticker.upper()
-        )
-        duplicates = transformed_data_with_ticker.duplicated(subset="addressInput")
-        self.logger.debug(f"Dropping duplicates: {duplicates}")
-        transformed_data_with_ticker.drop_duplicates(
-            inplace=True, subset="addressInput"
-        )
+        duplicate_addresses = set()
+        results = list()
+
+        # drop duplicates and upper case reit tickers
+        for result in transformed_data:
+            result.property.reit_ticker = self.ticker.upper()
+            if result.property.address_input in duplicate_addresses:
+                self.logger.debug(f"Dropping duplicate: {result}")
+                continue
+            duplicate_addresses.add(result.property.address_input)
+            results.append(result)
+
         self.logger.debug(
-            f"Transformed data for REIT: {self.ticker}, df: {transformed_data_with_ticker}"
+            f"Transformed data for REIT: {self.ticker}, results: {results}"
         )
-        return transformed_data_with_ticker
+        return results
 
     @staticmethod
     def acres_to_sqft(acres: float) -> float:
@@ -81,3 +86,21 @@ class Transformer(ABC):
     def parse_area_string(area: str) -> float:
         digits = "".join(list(filter(str.isdigit, area)))
         return float(digits)
+
+
+@dataclass
+class TransformResult:
+    property: Property
+    # TODO: remove scraperesult ???
+    scrape_result: ScrapeResult
+
+    @staticmethod
+    def to_csv(data: list["TransformResult"], destination_path: Path) -> None:
+        Property.to_csv([d.property for d in data], destination_path)
+
+    @staticmethod
+    def from_csv(file_path: Path) -> list["TransformResult"]:
+        return [
+            TransformResult(property=p, scrape_result=ScrapeResult(dict()))
+            for p in Property.from_csv(file_path)
+        ]

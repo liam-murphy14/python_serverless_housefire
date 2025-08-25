@@ -7,7 +7,9 @@ import os.path
 class HousefireLoggerFactory:
     def __init__(self, deploy_env: str):
         base_housefire_logger = logging.getLogger("housefire")
-        base_housefire_logger.setLevel(logging.DEBUG)
+        base_housefire_logger.setLevel(
+            logging.DEBUG if deploy_env == "development" else logging.INFO
+        )
 
         base_housefire_format = logging.Formatter(
             "%(asctime)s - %(levelname)s - %(name)s - %(message)s",
