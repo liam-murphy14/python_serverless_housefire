@@ -51,6 +51,7 @@ class ScraperFactory:
         browser = await uc.start(
             headless=False,
             browser_executable_path=self.chrome_path,
+            browser_args=["--disable-gpu"]
         )
         # hack because i am not sure how to send CDP command thru browser
         tab = await browser.get("https://www.google.com")
