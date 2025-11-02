@@ -32,7 +32,7 @@ class PldScraper(Scraper):
         if not isinstance(csv_download_button, uc.Element):
             raise Exception("could not find download button")
         await csv_download_button.click()
-        await self._wait(10)
+        await self._wait(15)
 
         file_list = list(
             filter(
