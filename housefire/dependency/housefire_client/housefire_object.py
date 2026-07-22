@@ -83,12 +83,12 @@ class Geocode(SerializableHousefireObject):
             id=data["id"] if "id" in data else None,
             created_at=(
                 datetime.fromisoformat(data["createdAt"])
-                if "createdAt" in data
+                if data.get("createdAt")
                 else None
             ),
             updated_at=(
                 datetime.fromisoformat(data["updatedAt"])
-                if "updatedAt" in data
+                if data.get("updatedAt")
                 else None
             ),
             address_input=data["addressInput"],
@@ -194,12 +194,12 @@ class Property(SerializableHousefireObject):
             id=data["id"] if "id" in data else None,
             created_at=(
                 datetime.fromisoformat(data["createdAt"])
-                if "createdAt" in data
+                if data.get("createdAt")
                 else None
             ),
             updated_at=(
                 datetime.fromisoformat(data["updatedAt"])
-                if "updatedAt" in data
+                if data.get("updatedAt")
                 else None
             ),
             name=data["name"] if "name" in data else None,
@@ -211,10 +211,20 @@ class Property(SerializableHousefireObject):
             state=data["state"] if "state" in data else None,
             zip=data["zip"] if "zip" in data else None,
             country=data["country"] if "country" in data else None,
-            latitude=float(data["latitude"]) if "latitude" in data else None,
-            longitude=float(data["longitude"]) if "longitude" in data else None,
+            latitude=(
+                float(data["latitude"])
+                if data.get("latitude") not in (None, "")
+                else None
+            ),
+            longitude=(
+                float(data["longitude"])
+                if data.get("longitude") not in (None, "")
+                else None
+            ),
             square_footage=(
-                float(data["squareFootage"]) if "squareFootage" in data else None
+                float(data["squareFootage"])
+                if data.get("squareFootage") not in (None, "")
+                else None
             ),
             reit_ticker=data["reitTicker"],
         )
