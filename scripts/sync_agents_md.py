@@ -43,7 +43,7 @@ def render_inventory() -> str:
     project_files = sorted(
         path.name
         for path in ROOT.iterdir()
-        if path.is_file() and path.name not in {"AGENTS.md"}
+        if path.is_file() and path.name not in {"AGENTS.md", ".git"}
     )
 
     return "\n".join(
