@@ -63,3 +63,4 @@ docs/_build/
 
 # nix build output
 result
+.worktrees/
