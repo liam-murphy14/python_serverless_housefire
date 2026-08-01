@@ -121,6 +121,39 @@ class TestHousefireClient(unittest.TestCase):
         post.assert_called_once_with("/properties", [property_object.to_dict()])
         self.assertEqual(properties[0].address_input, "1 Main Street")
 
+    def test_post_properties_sends_facts_in_json_payload(self):
+        property_object = Property(
+            address_input="1 Main Street",
+            reit_ticker="PLD",
+            facts=[{"label": "Year built", "value": "2022"}],
+        )
+        response = self.get_response(
+            201,
+            [
+                {
+                    "addressInput": "1 Main Street",
+                    "reitTicker": "PLD",
+                    "facts": [{"label": "Year built", "value": "2022"}],
+                }
+            ],
+        )
+        with patch.object(self.client, "_post", return_value=response) as post:
+            properties = self.client.post_properties([property_object])
+
+        post.assert_called_once_with(
+            "/properties",
+            [
+                {
+                    "addressInput": "1 Main Street",
+                    "reitTicker": "PLD",
+                    "facts": [{"label": "Year built", "value": "2022"}],
+                }
+            ],
+        )
+        self.assertEqual(
+            properties[0].facts, [{"label": "Year built", "value": "2022"}]
+        )
+
     def test_post_properties_raises_value_error_for_validation_error(self):
         response = self.get_response(400, {"error": "invalid"})
         with patch.object(self.client, "_post", return_value=response):

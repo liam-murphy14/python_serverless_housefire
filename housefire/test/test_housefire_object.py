@@ -71,6 +71,57 @@ class TestHousefireObject(unittest.TestCase):
             },
         )
 
+    def test_property_to_dict_includes_ordered_facts(self):
+        facts = [
+            {"label": "Year built", "value": "2022"},
+            {"label": "Lease term", "value": "15 years"},
+        ]
+        property_object = Property(
+            address_input="1 Main Street",
+            reit_ticker="PLD",
+            facts=facts,
+        )
+
+        self.assertEqual(property_object.to_dict()["facts"], facts)
+
+    def test_property_from_dict_reads_facts_and_defaults_when_omitted(self):
+        facts = [{"label": "Year built", "value": "2022"}]
+
+        property_with_facts = Property.from_dict(
+            {
+                "addressInput": "1 Main Street",
+                "reitTicker": "PLD",
+                "facts": facts,
+            }
+        )
+        property_without_facts = Property.from_dict(
+            {
+                "addressInput": "2 Main Street",
+                "reitTicker": "PLD",
+            }
+        )
+
+        self.assertEqual(property_with_facts.facts, facts)
+        self.assertIsNone(property_without_facts.facts)
+
+    def test_property_csv_round_trip_preserves_ordered_facts(self):
+        facts = [
+            {"label": "Year built", "value": "2022"},
+            {"label": "Lease term", "value": "15 years"},
+        ]
+        property_object = Property(
+            address_input="1 Main Street",
+            reit_ticker="PLD",
+            facts=facts,
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "properties.csv"
+            Property.to_csv([property_object], path)
+            properties = Property.from_csv(path)
+
+        self.assertEqual(properties[0].facts, facts)
+
     def test_property_from_dict_converts_dates_and_numeric_values(self):
         property_object = Property.from_dict(
             {

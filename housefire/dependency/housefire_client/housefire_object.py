@@ -1,4 +1,5 @@
 import csv
+import json
 from pathlib import Path
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -29,7 +30,10 @@ class SerializableHousefireObject(ABC):
             )
             writer.writeheader()
             for d in data:
-                data_dict = d.to_dict()
+                data_dict = {
+                    key: json.dumps(value) if isinstance(value, (list, dict)) else value
+                    for key, value in d.to_dict().items()
+                }
                 writer.writerow(data_dict)
 
     @staticmethod
@@ -165,6 +169,7 @@ class Property(SerializableHousefireObject):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     square_footage: Optional[float] = None
+    facts: Optional[list[dict[str, str]]] = None
 
     def to_dict(self) -> dict:
         """
@@ -184,12 +189,17 @@ class Property(SerializableHousefireObject):
             "latitude": self.latitude,
             "longitude": self.longitude,
             "squareFootage": self.square_footage,
+            "facts": self.facts,
             "reitTicker": self.reit_ticker,
         }
         return {k: v for k, v in dict_with_none_values.items() if v is not None}
 
     @staticmethod
     def from_dict(data: dict) -> "Property":
+        facts = data.get("facts")
+        if isinstance(facts, str):
+            facts = json.loads(facts) if facts else None
+
         return Property(
             id=data["id"] if "id" in data else None,
             created_at=(
@@ -226,6 +236,7 @@ class Property(SerializableHousefireObject):
                 if data.get("squareFootage") not in (None, "")
                 else None
             ),
+            facts=facts,
             reit_ticker=data["reitTicker"],
         )
 
@@ -247,6 +258,7 @@ class Property(SerializableHousefireObject):
             "latitude",
             "longitude",
             "squareFootage",
+            "facts",
             "reitTicker",
         ]
 
