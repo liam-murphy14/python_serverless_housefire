@@ -6,6 +6,7 @@ before the Nix development environment is available.
 """
 
 from pathlib import Path
+import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -36,15 +37,34 @@ def _bullet_list(items: list[str], empty: str = "(none)") -> str:
     return ", ".join(f"`{item}`" for item in items) if items else empty
 
 
+def _project_files() -> list[str]:
+    excluded = {"AGENTS.md", ".git"}
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(ROOT), "ls-files", "--cached"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return sorted(
+            path.name
+            for path in ROOT.iterdir()
+            if path.is_file() and path.name not in excluded
+        )
+
+    return sorted(
+        Path(name).name
+        for name in result.stdout.splitlines()
+        if len(Path(name).parts) == 1 and Path(name).name not in excluded
+    )
+
+
 def render_inventory() -> str:
     scrapers = _ticker_modules(ROOT / "housefire/scraper/reits_by_ticker", "py")
     transformers = _ticker_modules(ROOT / "housefire/transformer/reits_by_ticker", "py")
     tests = _relative_files(ROOT / "housefire/test", "test_*.py")
-    project_files = sorted(
-        path.name
-        for path in ROOT.iterdir()
-        if path.is_file() and path.name not in {"AGENTS.md", ".git"}
-    )
+    project_files = _project_files()
 
     return "\n".join(
         [

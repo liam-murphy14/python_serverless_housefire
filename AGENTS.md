@@ -30,7 +30,7 @@ This inventory is refreshed by `python3 scripts/sync_agents_md.py` and by the re
 - Configuration and logging: `housefire/config.py`, `housefire/logger.py`
 - Scraper modules present: `dlr`, `eqix`, `pld`, `spg`, `well`
 - Transformer modules present: `dlr`, `eqix`, `pld`, `spg`, `well`
-- Test modules: `housefire/test/test_client.py`, `housefire/test/test_config.py`, `housefire/test/test_factory.py`, `housefire/test/test_google_maps.py`, `housefire/test/test_housefire_object.py`, `housefire/test/test_logger.py`, `housefire/test/test_scraper.py`, `housefire/test/test_transformer.py`
+- Test modules: `housefire/test/test_client.py`, `housefire/test/test_config.py`, `housefire/test/test_factory.py`, `housefire/test/test_google_maps.py`, `housefire/test/test_housefire_object.py`, `housefire/test/test_logger.py`, `housefire/test/test_scraper.py`, `housefire/test/test_sync_agents_md.py`, `housefire/test/test_transformer.py`
 - Project/build files: `.envrc`, `.gitignore`, `README.md`, `default.nix`, `flake.lock`, `flake.nix`, `pyproject.toml`
 - Contributor documentation: `docs/zero_to_hundred.md`
 
