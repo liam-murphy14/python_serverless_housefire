@@ -139,6 +139,93 @@ class TestPldTransformer(unittest.TestCase):
             "1 Main Street, New York, NY 10001, US",
         )
 
+    def test_execute_transform_parses_ordered_property_facts(self):
+        transformer = PldTransformer()
+        transformer.ticker = "pld"
+        result = ScrapeResult(
+            {
+                "Property Name": "Distribution Center",
+                "Street Address 1": "1 Main Street",
+                "City": "New York",
+                "State": "NY",
+                "Postal Code": "10001",
+                "Country": "US",
+                "Latitude": "40.0",
+                "Longitude": "-73.0",
+                "Available Date": "01/01/2027",
+                "Market Property Type": "Building",
+                "Truck Court Depth": "164.0000",
+                "Rail Served": "No",
+                "Key Feature 1": "30' Clear Height",
+                "Key Feature 2": "89 Dock Doors",
+                "Unit Name": "Hall A",
+                "Unit Office Size": "17,555 SF",
+                "# of Grade Level Doors": "12",
+                "Warehouse Lighting Type": "LED",
+                "Clear Height": "32 FT",
+                "Main Breaker Size (AMPS)": "2,000",
+                "Fire Suppression System": "ESFR",
+                "# of Dock High Doors": "20",
+            }
+        )
+
+        transformed = transformer.execute_transform([result])
+
+        self.assertEqual(
+            transformed[0].property.facts,
+            [
+                {"label": "Available Date", "value": "01/01/2027"},
+                {"label": "Market Property Type", "value": "Building"},
+                {"label": "Truck Court Depth", "value": "164.0000"},
+                {"label": "Rail Served", "value": "No"},
+                {"label": "Key Feature 1", "value": "30' Clear Height"},
+                {"label": "Key Feature 2", "value": "89 Dock Doors"},
+                {"label": "Unit Name", "value": "Hall A"},
+                {"label": "Unit Office Size", "value": "17,555 SF"},
+                {"label": "Grade Level Doors", "value": "12"},
+                {"label": "Warehouse Lighting Type", "value": "LED"},
+                {"label": "Clear Height", "value": "32 FT"},
+                {"label": "Main Breaker Size (AMPS)", "value": "2,000"},
+                {"label": "Fire Suppression System", "value": "ESFR"},
+                {"label": "Dock High Doors", "value": "20"},
+            ],
+        )
+
+    def test_execute_transform_omits_empty_and_placeholder_facts(self):
+        transformer = PldTransformer()
+        transformer.ticker = "pld"
+        result = ScrapeResult(
+            {
+                "Latitude": "40.0",
+                "Longitude": "-73.0",
+                "Available Date": " ",
+                "Truck Court Depth": " N/A ",
+                "Rail Served": " No ",
+                "Key Feature 1": "tBD",
+                "Key Feature 2": "  Cross-dock loading  ",
+                "Fire Suppression System": "",
+            }
+        )
+
+        transformed = transformer.execute_transform([result])
+
+        self.assertEqual(
+            transformed[0].property.facts,
+            [
+                {"label": "Rail Served", "value": "No"},
+                {"label": "Key Feature 2", "value": "Cross-dock loading"},
+            ],
+        )
+
+    def test_execute_transform_uses_none_when_no_property_facts_apply(self):
+        transformer = PldTransformer()
+        transformer.ticker = "pld"
+        result = ScrapeResult({"Latitude": "40.0", "Longitude": "-73.0"})
+
+        transformed = transformer.execute_transform([result])
+
+        self.assertIsNone(transformed[0].property.facts)
+
 
 class TestGeocodeTransformer(unittest.TestCase):
 

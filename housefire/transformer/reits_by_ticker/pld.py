@@ -4,6 +4,22 @@ from housefire.scraper.scraper import ScrapeResult
 
 
 class PldTransformer(Transformer):
+    facts_field_map = (
+        ("Available Date", "Available Date"),
+        ("Market Property Type", "Market Property Type"),
+        ("Truck Court Depth", "Truck Court Depth"),
+        ("Rail Served", "Rail Served"),
+        *((f"Key Feature {index}", f"Key Feature {index}") for index in range(1, 7)),
+        ("Unit Name", "Unit Name"),
+        ("Unit Office Size", "Unit Office Size"),
+        ("# of Grade Level Doors", "Grade Level Doors"),
+        ("Warehouse Lighting Type", "Warehouse Lighting Type"),
+        ("Clear Height", "Clear Height"),
+        ("Main Breaker Size (AMPS)", "Main Breaker Size (AMPS)"),
+        ("Fire Suppression System", "Fire Suppression System"),
+        ("# of Dock High Doors", "Dock High Doors"),
+    )
+
     def __init__(self):
         super().__init__()
 
@@ -53,11 +69,25 @@ class PldTransformer(Transformer):
                     if "Available Square Footage" in prop_info
                     else None
                 ),
+                facts=self._parse_facts(prop_info),
                 address_input=self._construct_address_input(prop_info),
                 reit_ticker=self.ticker,
             )
             results.append(TransformResult(property=prop, scrape_result=result))
         return results
+
+    @classmethod
+    def _parse_facts(cls, prop_info: dict) -> list[dict[str, str]] | None:
+        facts = []
+        for source_field, label in cls.facts_field_map:
+            value = prop_info.get(source_field)
+            if value is None:
+                continue
+            value = value.strip()
+            if not value or value.upper() in {"N/A", "TBD"}:
+                continue
+            facts.append({"label": label, "value": value})
+        return facts or None
 
     @staticmethod
     def _construct_address_input(prop_info: dict) -> str:
