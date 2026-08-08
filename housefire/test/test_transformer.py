@@ -393,6 +393,123 @@ class TestDlrTransformer(unittest.TestCase):
 
         self.assertIsNone(transformed[0].property.facts)
 
+    def test_execute_transform_handles_blank_optional_facts_after_csv_round_trip(self):
+        transformer = self.get_transformer_with_geocode()
+        transformer.google_geocode_api_client.geocode_addresses.return_value = {
+            "1 Main Street": Geocode("1 Main Street", 40.0, -73.0),
+            "2 Main Street": Geocode("2 Main Street", 41.0, -74.0),
+        }
+        complete = ScrapeResult(
+            {
+                "name": "CH1",
+                "address_input": "1 Main Street",
+                "square_footage": "100 SF",
+                "facility_code": "CH1",
+                "compliance_certifications": json.dumps(["SOC 2"]),
+                "sustainability_certifications": json.dumps(["Energy Star"]),
+                "sustainability_energy_label": "Renewable Energy %",
+                "sustainability_energy_value": "14%",
+                "security_infrastructure": json.dumps(["CCTV"]),
+            }
+        )
+        missing_optional_facts = ScrapeResult(
+            {"name": "CH2", "address_input": "2 Main Street"}
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "dlr-scrape.csv"
+            ScrapeResult.to_csv([complete, missing_optional_facts], path)
+            round_tripped = ScrapeResult.from_csv(path)
+
+        self.assertEqual(
+            round_tripped[1].property_info["compliance_certifications"], ""
+        )
+        self.assertEqual(
+            round_tripped[1].property_info["sustainability_energy_value"], ""
+        )
+        self.assertEqual(round_tripped[1].property_info["security_infrastructure"], "")
+
+        transformed = transformer.transform(round_tripped)
+
+        self.assertEqual(
+            transformed[0].property.facts,
+            [
+                {"label": "Facility Code", "value": "CH1"},
+                {"label": "Compliance Certification", "value": "SOC 2"},
+                {"label": "Sustainability Certification", "value": "Energy Star"},
+                {"label": "Renewable Energy %", "value": "14%"},
+                {"label": "Security & Infrastructure", "value": "CCTV"},
+            ],
+        )
+        self.assertIsNone(transformed[1].property.facts)
+        self.assertIsNone(transformed[1].property.square_footage)
+
+    def test_execute_transform_uses_none_for_missing_square_footage(self):
+        transformer = self.get_transformer_with_geocode()
+        result = ScrapeResult({"address_input": "1 Main Street"})
+
+        transformed = transformer.transform([result])
+
+        self.assertIsNone(transformed[0].property.square_footage)
+
+    def test_execute_transform_rejects_malformed_present_square_footage(self):
+        transformer = self.get_transformer_with_geocode()
+        result = ScrapeResult(
+            {"address_input": "1 Main Street", "square_footage": "not listed"}
+        )
+
+        with self.assertRaises(ValueError):
+            transformer.transform([result])
+
+    def test_execute_transform_omits_blank_and_placeholder_dlr_facts(self):
+        transformer = self.get_transformer_with_geocode()
+        result = ScrapeResult(
+            {
+                "address_input": "1 Main Street",
+                "square_footage": "100 SF",
+                "facility_code": " N/A ",
+                "description": "  Available in Q4  ",
+                "building_structure": " tBd ",
+                "compliance_certifications": json.dumps(
+                    [" SOC 2 ", "n/a", " ", "ISO 27001", "TBD"]
+                ),
+                "sustainability_certifications": json.dumps(["  Energy Star  ", "N/A"]),
+                "sustainability_energy_label": " tBd ",
+                "sustainability_energy_value": " N/A ",
+                "security_infrastructure": json.dumps(
+                    [" N/A ", " CCTV ", "", "tbd", "Onsite guards"]
+                ),
+            }
+        )
+
+        transformed = transformer.transform([result])
+
+        self.assertEqual(
+            transformed[0].property.facts,
+            [
+                {"label": "Description", "value": "Available in Q4"},
+                {"label": "Compliance Certification", "value": "SOC 2"},
+                {"label": "Compliance Certification", "value": "ISO 27001"},
+                {"label": "Sustainability Certification", "value": "Energy Star"},
+                {"label": "Security & Infrastructure", "value": "CCTV"},
+                {"label": "Security & Infrastructure", "value": "Onsite guards"},
+            ],
+        )
+
+    def test_execute_transform_rejects_incomplete_meaningful_energy_fact(self):
+        transformer = self.get_transformer_with_geocode()
+        result = ScrapeResult(
+            {
+                "address_input": "1 Main Street",
+                "square_footage": "100 SF",
+                "sustainability_energy_label": "Renewable Energy %",
+                "sustainability_energy_value": "TBD",
+            }
+        )
+
+        with self.assertRaises(ValueError):
+            transformer.transform([result])
+
     def test_execute_transform_preserves_dynamic_sustainability_label(self):
         transformer = self.get_transformer_with_geocode()
         result = ScrapeResult(
