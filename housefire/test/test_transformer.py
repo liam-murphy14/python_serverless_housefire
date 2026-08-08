@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -330,12 +331,13 @@ class TestDlrTransformer(unittest.TestCase):
                 "total_building_size": "485,000 ft² (45,050 m²)",
                 "ups_redundancy": "N+2",
                 "cooling_redundancy": "N+1",
-                "compliance_certifications": '["SOC1", "ISO 27001"]',
-                "sustainability_certifications": '["Energy Star"]',
+                "compliance_certifications": json.dumps(["SOC1", "ISO 27001"]),
+                "sustainability_certifications": json.dumps(["Energy Star"]),
                 "sustainability_energy_label": "Carbon-Free Energy %",
                 "sustainability_energy_value": "100%",
-                "security_infrastructure": '["24x7 onsite security personnel", '
-                '"CCTV with 90 day backup"]',
+                "security_infrastructure": json.dumps(
+                    ["24x7 onsite security personnel", "CCTV with 90 day backup"]
+                ),
             }
         )
 
