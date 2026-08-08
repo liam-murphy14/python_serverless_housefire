@@ -14,6 +14,14 @@ class TransformerFactory:
     Factory class for creating Transformer instances
     """
 
+    transformer_map = {
+        "pld": PldTransformer,
+        "spg": SpgTransformer,
+        "dlr": DlrTransformer,
+        "well": WellTransformer,
+        "eqix": EqixTransformer,
+    }
+
     def __init__(
         self,
         logger_factory: HousefireLoggerFactory,
@@ -21,13 +29,10 @@ class TransformerFactory:
     ):
         self.logger_factory = logger_factory
         self.google_geocode_api_client = geocode_api_client
-        self.transformer_map = {
-            "pld": PldTransformer,
-            "spg": SpgTransformer,
-            "dlr": DlrTransformer,
-            "well": WellTransformer,
-            "eqix": EqixTransformer,
-        }
+
+    @classmethod
+    def supported_tickers(cls) -> set[str]:
+        return set(cls.transformer_map)
 
     def get_transformer(self, ticker: str) -> Transformer:
         """

@@ -42,6 +42,12 @@ class TestTransformerFactory(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.factory.get_transformer("unknown")
 
+    def test_supported_tickers_returns_transformer_registry_keys(self):
+        self.assertEqual(
+            TransformerFactory.supported_tickers(),
+            {"pld", "spg", "dlr", "well", "eqix"},
+        )
+
 
 class TestScraperFactory(unittest.TestCase):
 
@@ -65,6 +71,12 @@ class TestScraperFactory(unittest.TestCase):
     def test_get_scraper_rejects_unsupported_ticker(self):
         with self.assertRaises(ValueError):
             asyncio.run(self.factory.get_scraper("unknown", "/tmp/housefire"))
+
+    def test_supported_tickers_returns_scraper_registry_keys(self):
+        self.assertEqual(
+            ScraperFactory.supported_tickers(),
+            {"pld", "spg", "dlr", "well", "eqix"},
+        )
 
     @patch("housefire.scraper.scraper_factory.uc.cdp.browser.set_download_behavior")
     @patch("housefire.scraper.scraper_factory.uc.start", new_callable=AsyncMock)
