@@ -152,6 +152,47 @@ class Geocode(SerializableHousefireObject):
 
 
 @dataclass
+class Reit(SerializableHousefireObject):
+    ticker: str
+    id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    def to_dict(self) -> dict:
+        return {"ticker": self.ticker}
+
+    @staticmethod
+    def from_dict(data: dict) -> "Reit":
+        return Reit(
+            ticker=data["ticker"],
+            id=data["id"] if "id" in data else None,
+            created_at=(
+                datetime.fromisoformat(data["createdAt"])
+                if data.get("createdAt")
+                else None
+            ),
+            updated_at=(
+                datetime.fromisoformat(data["updatedAt"])
+                if data.get("updatedAt")
+                else None
+            ),
+        )
+
+    @staticmethod
+    def keys() -> list[str]:
+        return ["id", "createdAt", "updatedAt", "ticker"]
+
+    @staticmethod
+    def from_csv(path: Path) -> list["Reit"]:
+        with open(path, "r") as f:
+            reader = csv.DictReader(f, dialect=csv.unix_dialect)
+            data: list["Reit"] = []
+            for row in reader:
+                data.append(Reit.from_dict(row))
+            return data
+
+
+@dataclass
 class Property(SerializableHousefireObject):
     address_input: str
     reit_ticker: str

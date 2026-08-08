@@ -4,10 +4,38 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
-from housefire.dependency.housefire_client.housefire_object import Geocode, Property
+from housefire.dependency.housefire_client.housefire_object import (
+    Geocode,
+    Property,
+    Reit,
+)
 
 
 class TestHousefireObject(unittest.TestCase):
+
+    def test_reit_to_dict_omits_api_metadata(self):
+        reit = Reit(
+            ticker="PLD",
+            id="reit-1",
+            created_at=datetime.fromisoformat("2026-01-01T00:00:00"),
+        )
+        self.assertEqual(reit.to_dict(), {"ticker": "PLD"})
+
+    def test_reit_from_dict_reads_api_metadata(self):
+        reit = Reit.from_dict(
+            {
+                "id": "reit-1",
+                "createdAt": "2026-01-01T00:00:00",
+                "updatedAt": "2026-01-02T00:00:00",
+                "ticker": "PLD",
+            }
+        )
+        self.assertEqual(reit.ticker, "PLD")
+        self.assertEqual(reit.id, "reit-1")
+        self.assertEqual(
+            reit.created_at,
+            datetime.fromisoformat("2026-01-01T00:00:00"),
+        )
 
     def test_geocode_to_dict_omits_optional_fields_and_metadata(self):
         geocode = Geocode(
