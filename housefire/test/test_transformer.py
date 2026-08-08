@@ -295,7 +295,7 @@ class TestGeocodeTransformer(unittest.TestCase):
 
 class TestDlrTransformer(unittest.TestCase):
 
-    def test_execute_transform_sets_square_footage(self):
+    def get_transformer_with_geocode(self):
         transformer = DlrTransformer()
         transformer.ticker = "dlr"
         transformer.logger = Mock()
@@ -303,6 +303,10 @@ class TestDlrTransformer(unittest.TestCase):
         transformer.google_geocode_api_client.geocode_addresses.return_value = {
             "1 Main Street": Geocode("1 Main Street", 40.0, -73.0)
         }
+        return transformer
+
+    def test_execute_transform_sets_square_footage(self):
+        transformer = self.get_transformer_with_geocode()
         result = ScrapeResult(
             {"address_input": "1 Main Street", "square_footage": "12,500 SF"}
         )
@@ -311,6 +315,114 @@ class TestDlrTransformer(unittest.TestCase):
 
         self.assertEqual(transformed[0].property.square_footage, 12500.0)
         self.assertEqual(transformed[0].property.reit_ticker, "DLR")
+
+    def test_execute_transform_maps_dlr_facts_in_source_order(self):
+        transformer = self.get_transformer_with_geocode()
+        result = ScrapeResult(
+            {
+                "name": "Chicago CH1",
+                "address_input": "1 Main Street",
+                "square_footage": "485,000 SF",
+                "facility_code": "CH1",
+                "description": "This center supports large deployments.",
+                "facility_brochure_url": "https://go2.digitalrealty.com/ch1.pdf",
+                "building_structure": "1 Story",
+                "total_building_size": "485,000 ft² (45,050 m²)",
+                "ups_redundancy": "N+2",
+                "cooling_redundancy": "N+1",
+                "compliance_certifications": '["SOC1", "ISO 27001"]',
+                "sustainability_certifications": '["Energy Star"]',
+                "sustainability_energy_label": "Carbon-Free Energy %",
+                "sustainability_energy_value": "100%",
+                "security_infrastructure": '["24x7 onsite security personnel", '
+                '"CCTV with 90 day backup"]',
+            }
+        )
+
+        transformed = transformer.transform([result])
+
+        self.assertEqual(transformed[0].property.name, "Chicago CH1")
+        self.assertEqual(transformed[0].property.square_footage, 485000.0)
+        self.assertEqual(
+            transformed[0].property.facts,
+            [
+                {"label": "Facility Code", "value": "CH1"},
+                {
+                    "label": "Description",
+                    "value": "This center supports large deployments.",
+                },
+                {
+                    "label": "Facility Brochure",
+                    "value": "https://go2.digitalrealty.com/ch1.pdf",
+                },
+                {"label": "Building Structure", "value": "1 Story"},
+                {
+                    "label": "Total Building Size",
+                    "value": "485,000 ft² (45,050 m²)",
+                },
+                {"label": "UPS Redundancy", "value": "N+2"},
+                {"label": "Cooling Redundancy", "value": "N+1"},
+                {"label": "Compliance Certification", "value": "SOC1"},
+                {"label": "Compliance Certification", "value": "ISO 27001"},
+                {"label": "Sustainability Certification", "value": "Energy Star"},
+                {"label": "Carbon-Free Energy %", "value": "100%"},
+                {
+                    "label": "Security & Infrastructure",
+                    "value": "24x7 onsite security personnel",
+                },
+                {
+                    "label": "Security & Infrastructure",
+                    "value": "CCTV with 90 day backup",
+                },
+            ],
+        )
+
+    def test_execute_transform_omits_missing_optional_dlr_facts(self):
+        transformer = self.get_transformer_with_geocode()
+        result = ScrapeResult(
+            {
+                "name": "CH1",
+                "address_input": "1 Main Street",
+                "square_footage": "100 SF",
+            }
+        )
+
+        transformed = transformer.transform([result])
+
+        self.assertIsNone(transformed[0].property.facts)
+
+    def test_execute_transform_preserves_dynamic_sustainability_label(self):
+        transformer = self.get_transformer_with_geocode()
+        result = ScrapeResult(
+            {
+                "name": "CH1",
+                "address_input": "1 Main Street",
+                "square_footage": "100 SF",
+                "sustainability_energy_label": "Renewable Energy %",
+                "sustainability_energy_value": "14%",
+            }
+        )
+
+        transformed = transformer.transform([result])
+
+        self.assertIn(
+            {"label": "Renewable Energy %", "value": "14%"},
+            transformed[0].property.facts,
+        )
+
+    def test_execute_transform_rejects_malformed_dlr_fact_json(self):
+        transformer = self.get_transformer_with_geocode()
+        result = ScrapeResult(
+            {
+                "name": "CH1",
+                "address_input": "1 Main Street",
+                "square_footage": "100 SF",
+                "security_infrastructure": "not-json",
+            }
+        )
+
+        with self.assertRaises(ValueError):
+            transformer.transform([result])
 
 
 if __name__ == "__main__":
