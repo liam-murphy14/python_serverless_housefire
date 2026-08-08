@@ -1,75 +1,237 @@
+import json
+import re
+from urllib.parse import urljoin
+
 import nodriver as uc
+
 from housefire.scraper.scraper import Scraper, ScrapeResult
-from housefire.dependency.housefire_client.housefire_object import Property
 
 
 class DlrScraper(Scraper):
-    def __init__(self):
-        super().__init__()
+    base_url = "https://www.digitalrealty.com"
 
     async def execute_scrape(self) -> list[ScrapeResult]:
-        start_url = "https://www.digitalrealty.com/data-centers"
-        tab = await self.driver.get(start_url)
+        start_url = f"{self.base_url}/data-centers"
+        root_tab = None
+        results: list[ScrapeResult] = []
+        detail_urls: list[str] = []
+        seen_detail_urls: set[str] = set()
 
-        results: list[ScrapeResult] = list()
-        property_urls = await self._digital_realty_scrape_region_urls(tab)
-        self.logger.debug(f"found property urls: {property_urls}")
+        try:
+            root_tab = await self.driver.get(start_url)
+            region_urls = await self._digital_realty_scrape_region_urls(root_tab)
+            self.logger.debug(f"found property urls: {region_urls}")
 
-        for property_url in property_urls:
-            await self._jiggle()
-            property_tab = await self.driver.get(property_url, new_tab=True)
-            try:
-                scrape_results = await self._digital_realty_scrape_single_region(
-                    property_tab
-                )
-                results.extend(scrape_results)
-            except Exception as e:
-                self.logger.warning(f"error scraping property: {property_url}, {e}")
-            finally:
-                await property_tab.close()
+            for region_url in region_urls:
+                await self._jiggle()
+                metro_tab = None
+                try:
+                    metro_tab = await self.driver.get(region_url, new_tab=True)
+                    await self._wait(30)
+                    for detail_url in await self._digital_realty_scrape_detail_urls(
+                        metro_tab
+                    ):
+                        if detail_url not in seen_detail_urls:
+                            seen_detail_urls.add(detail_url)
+                            detail_urls.append(detail_url)
+                except Exception as error:
+                    self.logger.warning(
+                        f"error scraping property: {region_url}, {error}"
+                    )
+                finally:
+                    if metro_tab is not None:
+                        await metro_tab.close()
+
+            for detail_url in detail_urls:
+                await self._jiggle()
+                detail_tab = None
+                try:
+                    detail_tab = await self.driver.get(detail_url, new_tab=True)
+                    await self._wait(30)
+                    results.append(
+                        await self._digital_realty_scrape_single_detail(detail_tab)
+                    )
+                except Exception as error:
+                    self.logger.warning(
+                        f"error scraping property: {detail_url}, {error}"
+                    )
+                finally:
+                    if detail_tab is not None:
+                        await detail_tab.close()
+        finally:
+            if root_tab is not None and hasattr(root_tab, "close"):
+                await root_tab.close()
 
         return results
 
     async def _digital_realty_scrape_region_urls(self, tab: uc.Tab) -> list[str]:
-        link_elements = await tab.query_selector_all(".region")
-        base_url = "https://www.digitalrealty.com"
-        return [base_url + element.attrs["href"] for element in link_elements]
+        urls: list[str] = []
+        seen_urls: set[str] = set()
+        for element in await tab.query_selector_all(".region"):
+            href = element.attrs.get("href")
+            if href:
+                url = urljoin(self.base_url, href)
+                if url not in seen_urls:
+                    seen_urls.add(url)
+                    urls.append(url)
+        return urls
 
-    async def _digital_realty_scrape_single_region(
-        self, tab: uc.Tab
-    ) -> list[ScrapeResult]:
-        await self._wait(30)
-        property_divs = await tab.query_selector_all(".a-metro-map-link")
-        names = [
-            (await div.query_selector(".title")).text_all.strip()
-            for div in property_divs
-        ]
-        address_inputs = [
-            (await div.query_selector(".sub-title")).text.strip()
-            for div in property_divs
-        ]
-        sq_footage_parts = [
-            (await div.query_selector(".bottom-part")).children[0].text.strip()
-            for div in property_divs
-        ]
-        property_infos = [
-            {
-                "name": name,
-                "address_input": address_input,
-                "square_footage": sq_footage,
-            }
-            for name, address_input, sq_footage in zip(
-                names, address_inputs, sq_footage_parts
+    async def _digital_realty_scrape_detail_urls(self, tab: uc.Tab) -> list[str]:
+        urls: list[str] = []
+        seen_urls: set[str] = set()
+        for element in await tab.query_selector_all(".a-metro-map-link"):
+            href = element.attrs.get("href")
+            if href:
+                url = urljoin(self.base_url, href)
+                if url not in seen_urls:
+                    seen_urls.add(url)
+                    urls.append(url)
+        return urls
+
+    async def _query_text(
+        self, tab_or_element, selector, *, text_all: bool = False
+    ) -> str | None:
+        element = await tab_or_element.query_selector(selector)
+        if element is None:
+            return None
+        raw_text = element.text_all if text_all else element.text
+        normalized = " ".join(raw_text.split())
+        return normalized or None
+
+    async def _scrape_detail_specifications(self, tab) -> dict[str, str]:
+        specifications = {}
+        for element in await tab.query_selector_all(
+            ".facility-table .table-specification"
+        ):
+            label = await self._query_text(element, ".specification-name")
+            value = await self._query_text(element, ".specification-value")
+            if label and value:
+                specifications[label.rstrip(":").strip()] = value
+        return specifications
+
+    async def _scrape_detail_accordion_sections(self, tab) -> dict[str, uc.Element]:
+        sections = {}
+        for accordion in await tab.query_selector_all(".facility-accordion .accordion"):
+            title = await self._query_text(accordion, "h3.accordion-title")
+            if title:
+                sections[title] = accordion
+        return sections
+
+    @staticmethod
+    def _extract_square_footage(total_building_size: str) -> str:
+        match = re.search(r"([\d,]+\s*ft²?)", total_building_size, re.IGNORECASE)
+        if match is None:
+            raise ValueError(
+                "Total building size has no square-foot portion: "
+                f"{total_building_size}"
             )
-        ]
-        return [ScrapeResult(property_info) for property_info in property_infos]
+        return match.group(1).strip()
 
-    async def _debug_scrape(self):
-        start_url = "https://www.digitalrealty.com/data-centers/americas/chicago"
+    @staticmethod
+    def _element_text(element) -> str | None:
+        normalized = " ".join(element.text.split())
+        return normalized or None
+
+    async def _accordion_item_texts(self, accordion, selector) -> list[str]:
+        values = []
+        for element in await accordion.query_selector_all(selector):
+            value = self._element_text(element)
+            if value:
+                values.append(value)
+        return values
+
+    async def _digital_realty_scrape_single_detail(self, tab: uc.Tab) -> ScrapeResult:
+        property_info: dict[str, str] = {}
+        detail_fields = (
+            ("name", "#facility-template .hero-title", True),
+            ("facility_code", "#facility-template .marker", False),
+            ("description", "#facility-template .hero-description", False),
+            ("address_input", ".main-marketo.cta-bar.location .headline", False),
+        )
+        for field, selector, text_all in detail_fields:
+            value = await self._query_text(tab, selector, text_all=text_all)
+            if value:
+                property_info[field] = value
+
+        brochure = await tab.query_selector(
+            ".main-marketo.cta-bar.location .a-cta-bar-button"
+        )
+        if brochure is not None:
+            href = brochure.attrs.get("href")
+            if href:
+                property_info["facility_brochure_url"] = urljoin(self.base_url, href)
+
+        specifications = await self._scrape_detail_specifications(tab)
+        specification_fields = {
+            "Building structure": "building_structure",
+            "Total building size": "total_building_size",
+            "UPS redundancy": "ups_redundancy",
+            "Cooling redundancy": "cooling_redundancy",
+        }
+        for label, field in specification_fields.items():
+            value = specifications.get(label)
+            if value:
+                property_info[field] = value
+
+        total_building_size = specifications.get("Total building size")
+        if total_building_size:
+            property_info["square_footage"] = self._extract_square_footage(
+                total_building_size
+            )
+
+        sections = await self._scrape_detail_accordion_sections(tab)
+        compliance = sections.get("Compliance")
+        if compliance is not None:
+            compliance_values = await self._accordion_item_texts(
+                compliance, ".accordion-item-text"
+            )
+            if compliance_values:
+                property_info["compliance_certifications"] = json.dumps(
+                    compliance_values
+                )
+
+        sustainability = sections.get("Sustainability")
+        if sustainability is not None:
+            sustainability_certifications: list[str] = []
+            for heading_item in await sustainability.query_selector_all(
+                ".sub-accordion .heading-item"
+            ):
+                heading = await self._query_text(heading_item, ".heading-title")
+                values = await self._accordion_item_texts(
+                    heading_item, ".sub-accordion-item-text"
+                )
+                if not heading or not values:
+                    continue
+                if heading == "Certifications":
+                    sustainability_certifications.extend(values)
+                else:
+                    property_info["sustainability_energy_label"] = heading
+                    property_info["sustainability_energy_value"] = values[0]
+            if sustainability_certifications:
+                property_info["sustainability_certifications"] = json.dumps(
+                    sustainability_certifications
+                )
+
+        security = sections.get("Security & Infrastructure")
+        if security is not None:
+            security_values = await self._accordion_item_texts(
+                security, ".accordion-item-text"
+            )
+            if security_values:
+                property_info["security_infrastructure"] = json.dumps(security_values)
+
+        return ScrapeResult(property_info)
+
+    async def _debug_scrape(self) -> list[ScrapeResult]:
+        start_url = f"{self.base_url}/data-centers/americas/chicago/ch1"
         self.logger.debug(f"debug scraping for {self.ticker} at {start_url}")
         tab = await self.driver.get(start_url)
-        results = await self._digital_realty_scrape_single_region(tab)
-        self.logger.debug(f"SCRAPED SINGLE REGION DF")
-        self.logger.debug(results)
-        self.logger.debug("\n\n\n")
-        return results
+        try:
+            await self._wait(30)
+            result = await self._digital_realty_scrape_single_detail(tab)
+            self.logger.debug("SCRAPED SINGLE DETAIL")
+            self.logger.debug(result)
+            self.logger.debug("\n\n\n")
+            return [result]
+        finally:
+            await tab.close()
