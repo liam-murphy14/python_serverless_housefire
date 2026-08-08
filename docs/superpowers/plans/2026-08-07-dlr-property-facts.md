@@ -562,7 +562,6 @@ Implement _parse_facts(prop_info) with this algorithm:
         list_fields = (
             ("compliance_certifications", "Compliance Certification"),
             ("sustainability_certifications", "Sustainability Certification"),
-            ("security_infrastructure", "Security & Infrastructure"),
         )
         for source_field, label in list_fields:
             encoded_values = prop_info.get(source_field)
@@ -583,6 +582,17 @@ Implement _parse_facts(prop_info) with this algorithm:
             if not energy_label or not energy_value:
                 raise ValueError("Incomplete sustainability energy fact")
             facts.append({"label": energy_label.strip(), "value": energy_value.strip()})
+
+        encoded_security_values = prop_info.get("security_infrastructure")
+        if encoded_security_values is not None:
+            security_values = json.loads(encoded_security_values)
+            if not isinstance(security_values, list):
+                raise ValueError("Expected a list for security_infrastructure")
+            for value in security_values:
+                if not isinstance(value, str):
+                    raise ValueError("Expected string values for security_infrastructure")
+                if value.strip():
+                    facts.append({"label": "Security & Infrastructure", "value": value.strip()})
         return facts or None
 ~~~
 
