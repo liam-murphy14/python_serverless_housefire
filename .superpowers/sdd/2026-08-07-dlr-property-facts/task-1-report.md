@@ -60,3 +60,19 @@ The full suite confirms the expected state: `Ran 67 tests ... FAILED (failures=1
 - The required RED state means the full test suite is not green by design; later implementation work must make these three tests pass.
 - Plain `black --check housefire/test/test_scraper.py` reported a Python 3.14/3.15 target-version parsing mismatch in the installed Black environment. The equivalent explicit `--target-version py314` check passed for the changed file.
 - `black --target-version py314 --check housefire scripts` still reports a pre-existing formatting issue in `scripts/sync_agents_md.py`; that unrelated file was not changed.
+
+## Fix round 1
+
+Addressed both reviewer findings in `housefire/test/test_scraper.py`:
+
+- Added `test_execute_scrape_logs_and_skips_failed_detail_and_closes_tab`, where `_digital_realty_scrape_single_detail` raises `ValueError("detail unavailable")`; the test requires an empty result, a warning containing the detail identifier and error, and closure of the detail tab.
+- Added `scraper._jiggle.assert_awaited()` to the successful traversal test so randomized pacing remains part of the traversal contract.
+
+Commands and results:
+
+- `black --target-version py314 housefire/test/test_scraper.py` — PASS; reformatted the changed test file.
+- `python3 -m unittest housefire.test.test_scraper.TestDlrScraper` — expected RED: 4 tests, 2 failures and 2 errors. The new failure-path test fails because the not-yet-implemented production flow does not invoke the detail extractor or log its exception; the original two detail-contract tests fail on missing methods, and the success lifecycle test returns zero results.
+- `python3 -m unittest housefire.test.test_scraper.TestScraper` — PASS, 4 tests.
+- `git diff --check` — PASS.
+
+The fix remains test-only; no production behavior or fixtures outside `test_scraper.py` were changed. The fix commit follows this report append.

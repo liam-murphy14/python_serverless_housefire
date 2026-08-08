@@ -280,6 +280,37 @@ class TestDlrScraper(unittest.TestCase):
         self.assertTrue(metro_tab.closed)
         self.assertTrue(detail_tab.closed)
         self.assertTrue(root_tab.closed)
+        scraper._jiggle.assert_awaited()
+
+    def test_execute_scrape_logs_and_skips_failed_detail_and_closes_tab(self):
+        scraper = DlrScraper()
+        scraper.logger = Mock()
+        root_tab = FakeTab()
+        metro_tab = FakeTab()
+        detail_tab = FakeTab()
+        scraper.driver = FakeDriver([root_tab, metro_tab, detail_tab])
+        scraper._jiggle = AsyncMock()
+        scraper._wait = AsyncMock()
+        scraper._digital_realty_scrape_detail_urls = AsyncMock(
+            return_value=[
+                "https://www.digitalrealty.com/data-centers/americas/chicago/ch1"
+            ]
+        )
+        scraper._digital_realty_scrape_single_detail = AsyncMock(
+            side_effect=ValueError("detail unavailable")
+        )
+        scraper._digital_realty_scrape_region_urls = AsyncMock(
+            return_value=["https://www.digitalrealty.com/data-centers/americas/chicago"]
+        )
+
+        results = asyncio.run(scraper.execute_scrape())
+
+        self.assertEqual(results, [])
+        scraper.logger.warning.assert_called_once()
+        warning_message = scraper.logger.warning.call_args.args[0]
+        self.assertIn("ch1", warning_message)
+        self.assertIn("detail unavailable", warning_message)
+        self.assertTrue(detail_tab.closed)
 
 
 if __name__ == "__main__":
