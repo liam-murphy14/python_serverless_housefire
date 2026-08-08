@@ -8,6 +8,7 @@ import configparser
 
 from housefire.dependency.google_maps import GoogleGeocodeAPI
 from housefire.dependency.housefire_client.client import HousefireClient
+from housefire.dependency.housefire_client.housefire_object import Reit
 from housefire.logger import HousefireLoggerFactory
 from housefire.scraper.scraper_factory import ScraperFactory
 from housefire.scraper.scraper import ScrapeResult
@@ -221,6 +222,43 @@ def init(
     with open(config_path, "w") as config_file:
         config_object.write(config_file)
     click.echo(f"Config file at {config_path} has been initialized.")
+
+
+def _get_supported_tickers() -> list[str]:
+    ticker_set = (
+        ScraperFactory.supported_tickers() | TransformerFactory.supported_tickers()
+    )
+    return sorted(ticker.upper() for ticker in ticker_set)
+
+
+def sync_reits_main(config: HousefireConfig) -> tuple[list[str], list[str]]:
+    housefire_api = HousefireClient(
+        config.housefire_api_key,
+        config.housefire_base_url,
+    )
+    supported_tickers = _get_supported_tickers()
+    existing_tickers = sorted(reit.ticker.upper() for reit in housefire_api.get_reits())
+    existing_ticker_set = set(existing_tickers)
+    created_tickers = []
+    for ticker in supported_tickers:
+        if ticker in existing_ticker_set:
+            continue
+        housefire_api.post_reit(Reit(ticker=ticker))
+        created_tickers.append(ticker)
+    return existing_tickers, created_tickers
+
+
+@housefire.command(name="sync-reits")
+@click.pass_context
+def sync_reits(ctx):
+    """Create missing REIT records for registered scraper/transformer tickers."""
+    existing_tickers, created_tickers = sync_reits_main(ctx.obj["CONFIG"])
+    for ticker in created_tickers:
+        click.echo(f"Created REIT {ticker}.")
+    click.echo(
+        f"REIT sync complete: created {len(created_tickers)}, "
+        f"already present {len(existing_tickers)}."
+    )
 
 
 @housefire.command()

@@ -75,6 +75,15 @@ To run scraping, geocoding, transformation, and upload together:
 nix run . -- run-data-pipeline pld --save-output
 ```
 
+Ensure REIT rows exist for every registered scraper or transformer:
+
+```bash
+nix run . -- sync-reits
+```
+
+This command only creates missing REIT rows; it never deletes or modifies
+existing records.
+
 Commands that contact websites or upload data are integration operations. The
 pipeline can update and delete remote properties for the selected ticker when
 they are absent from the latest input. Google geocoding may also take time due

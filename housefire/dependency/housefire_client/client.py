@@ -1,6 +1,10 @@
 import requests as r
 import time
-from housefire.dependency.housefire_client.housefire_object import Property, Geocode
+from housefire.dependency.housefire_client.housefire_object import (
+    Geocode,
+    Property,
+    Reit,
+)
 
 
 class HousefireClient:
@@ -59,6 +63,25 @@ class HousefireClient:
         return list(
             map(lambda prop_dict: Property.from_dict(prop_dict), list(r.json()))
         )
+
+    def get_reits(self) -> list[Reit]:
+        """gets all REITs, raising an exception if an unexpected error occurs"""
+        r = self._get("/reits")
+        if self._is_error_response(r):
+            raise Exception(f"unexpected error getting reits: {r}")
+        return list(map(lambda reit_dict: Reit.from_dict(reit_dict), list(r.json())))
+
+    def post_reit(self, reit: Reit) -> Reit:
+        """
+        creates a REIT, returning the created REIT, raising an exception in the case
+        of a validation error or any other unexpected error
+        """
+        r = self._post("/reits", reit.to_dict())
+        if r.status_code == 400:
+            raise ValueError(f"validation error while creating reit: {r}")
+        elif self._is_error_response(r):
+            raise Exception(f"unexpected error creating reit: {r}")
+        return Reit.from_dict(r.json())
 
     def delete_properties_by_ticker(self, ticker: str) -> int:
         """

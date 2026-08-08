@@ -13,6 +13,14 @@ class ScraperFactory:
     Factory class for creating Scraper instances
     """
 
+    scraper_map = {
+        "pld": PldScraper,
+        "spg": SpgScraper,
+        "dlr": DlrScraper,
+        "well": WellScraper,
+        "eqix": EqixScraper,
+    }
+
     def __init__(
         self,
         logger_factory: HousefireLoggerFactory,
@@ -21,13 +29,10 @@ class ScraperFactory:
         self.logger_factory = logger_factory
         self.logger = logger_factory.get_logger(ScraperFactory.__name__)
         self.chrome_path = chrome_path
-        self.scraper_map = {
-            "pld": PldScraper,
-            "spg": SpgScraper,
-            "dlr": DlrScraper,
-            "well": WellScraper,
-            "eqix": EqixScraper,
-        }
+
+    @classmethod
+    def supported_tickers(cls) -> set[str]:
+        return set(cls.scraper_map)
 
     async def get_scraper(self, ticker: str, temp_dir_path: str) -> Scraper:
         """

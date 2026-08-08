@@ -2,7 +2,11 @@ import unittest
 from unittest.mock import Mock, patch
 
 from housefire.dependency.housefire_client.client import HousefireClient
-from housefire.dependency.housefire_client.housefire_object import Geocode, Property
+from housefire.dependency.housefire_client.housefire_object import (
+    Geocode,
+    Property,
+    Reit,
+)
 
 
 class TestHousefireClient(unittest.TestCase):
@@ -89,6 +93,21 @@ class TestHousefireClient(unittest.TestCase):
         self.assertEqual(
             [p.address_input for p in properties], ["1 Main Street", "2 Main Street"]
         )
+
+    def test_get_reits_returns_objects(self):
+        response = self.get_response(200, [{"ticker": "PLD"}, {"ticker": "DLR"}])
+        with patch.object(self.client, "_get", return_value=response) as get:
+            reits = self.client.get_reits()
+        get.assert_called_once_with("/reits")
+        self.assertEqual([reit.ticker for reit in reits], ["PLD", "DLR"])
+
+    def test_post_reit_sends_ticker_and_returns_object(self):
+        reit = Reit(ticker="PLD")
+        response = self.get_response(200, {"id": "reit-1", "ticker": "PLD"})
+        with patch.object(self.client, "_post", return_value=response) as post:
+            result = self.client.post_reit(reit)
+        post.assert_called_once_with("/reits", {"ticker": "PLD"})
+        self.assertEqual(result.ticker, "PLD")
 
     def test_get_properties_returns_empty_list_for_not_found(self):
         response = self.get_response(404, None)
